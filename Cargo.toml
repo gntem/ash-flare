@@ -11,7 +11,7 @@ documentation = "https://docs.rs/ash-flare"
 homepage = "https://github.com/gntem/ash-flare"
 repository = "https://github.com/gntem/ash-flare"
 readme = "README.md"
-keywords = ["supervisor", "fault-tolerance", "erlang", "resilience", "distributed"]
+keywords = ["supervisor", "fault-tolerance", "resilience", "distributed"]
 categories = ["asynchronous", "concurrency"]
 rust-version = "1.85"
 
@@ -58,14 +58,3 @@ path = "examples/interactive_demo.rs"
 [[example]]
 name = "tmux_demo"
 path = "examples/tmux_demo.rs"
-
-# Regional supervisor binaries
-[[bin]]
-name = "regional-supervisor-us-west"
-path = "examples/regional_us_west.rs"
-
-[[bin]]
-name = "regional-supervisor-eu-west"
-path = "examples/regional_eu_west.rs"
-
-

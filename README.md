@@ -1,9 +1,9 @@
-# Ash Flare
+# ash-flare
 
 [![Crates.io](https://img.shields.io/crates/v/ash-flare.svg)](https://crates.io/crates/ash-flare)
 [![Documentation](https://docs.rs/ash-flare/badge.svg)](https://docs.rs/ash-flare)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Rust Version](https://img.shields.io/badge/rust-1.75%2B-blue.svg)](https://www.rust-lang.org)
+[![Rust Version](https://img.shields.io/badge/rust-1.85%2B-blue.svg)](https://www.rust-lang.org)
 
 Fault-tolerant supervision trees for Rust with distributed capabilities inspired by Erlang/OTP. Build resilient systems that automatically recover from failures with supervisor trees, restart strategies, and distributed supervision.
 
