@@ -1,0 +1,5 @@
+/target
+
+# Shell scripts and recordings
+*.sh
+*.cast
