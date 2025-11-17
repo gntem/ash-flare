@@ -1,5 +1,5 @@
 //! Interactive Supervisor Tree Demo
-//! 
+//!
 //! This demo provides a comprehensive visualization of the supervisor tree with:
 //! - Real-time rendering of the entire hierarchy
 //! - Status indicators (running/stopped/restarting)
@@ -7,13 +7,15 @@
 //! - Interactive controls
 //! - Statistics and health monitoring
 
-use ash_flare::{ChildType, RestartPolicy, RestartStrategy, SupervisorHandle, SupervisorSpec, Worker};
+use ash_flare::{
+    ChildType, RestartPolicy, RestartStrategy, SupervisorHandle, SupervisorSpec, Worker,
+};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
-use tokio::time::{sleep, interval};
+use tokio::time::{interval, sleep};
 
 // ============================================================================
 // Worker Implementation
@@ -63,7 +65,7 @@ impl Worker for DemoWorker {
         loop {
             let mut counter = self.counter.write().await;
             *counter += 1;
-            
+
             // Update heartbeat
             {
                 let mut stats = self.stats.write().await;
@@ -76,7 +78,7 @@ impl Worker for DemoWorker {
                     let mut stats = self.stats.write().await;
                     stats.mark_failed(&self.name);
                 }
-                
+
                 return Err(WorkerError(format!(
                     "{} crashed after {} ticks",
                     self.name, *counter
@@ -128,12 +130,12 @@ impl WorkerStats {
             restarts: 0,
             last_heartbeat: std::time::Instant::now(),
         });
-        
+
         if state.status == WorkerStatus::Failed || state.status == WorkerStatus::Restarting {
             state.restarts += 1;
             self.total_restarts += 1;
         }
-        
+
         state.status = WorkerStatus::Running;
         state.last_heartbeat = std::time::Instant::now();
     }
@@ -165,54 +167,53 @@ async fn render_tree(
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Clear screen and move cursor to top
     print!("\x1B[2J\x1B[1;1H");
-    
+
     // Header
     println!("╔═══════════════════════════════════════════════════════════════════════════════╗");
     println!("║                    INTERACTIVE SUPERVISOR TREE DEMO                           ║");
     println!("╚═══════════════════════════════════════════════════════════════════════════════╝");
-    
+
     // Legend
     println!("\n📊 LEGEND:");
     println!("  Types:   📁 Supervisor  │  ⚙️  Worker");
     println!("  Policy:  ♻️  Permanent  │  ⏱️  Temporary  │  🔄 Transient");
     println!("  Status:  ✅ Running    │  ❌ Failed     │  🔄 Restarting  │  ⏸️  Stopped");
-    
+
     // Statistics
     let stats_guard = stats.read().await;
-    let running_count = stats_guard.states.values()
+    let running_count = stats_guard
+        .states
+        .values()
         .filter(|s| s.status == WorkerStatus::Running)
         .count();
-    let _failed_count = stats_guard.states.values()
+    let _failed_count = stats_guard
+        .states
+        .values()
         .filter(|s| s.status == WorkerStatus::Failed || s.status == WorkerStatus::Restarting)
         .count();
-    
+
     println!("\n📈 STATISTICS:");
-    println!("  Workers Running: {}  │  Total Restarts: {}", 
-        running_count, stats_guard.total_restarts);
-    
+    println!(
+        "  Workers Running: {}  │  Total Restarts: {}",
+        running_count, stats_guard.total_restarts
+    );
+
     println!("\n🌳 TREE STRUCTURE:");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    
+
     // Render root
     println!("📦 {} (root supervisor)", root.name());
-    
+
     // Render children recursively
     if let Ok(children) = root.which_children().await {
-        render_children_recursive(
-            &children,
-            "",
-            true,
-            &stats_guard,
-            root,
-            0
-        ).await?;
+        render_children_recursive(&children, "", true, &stats_guard, root, 0).await?;
     }
-    
+
     println!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!("\n⌨️  CONTROLS:");
     println!("  Press Ctrl+C to exit  │  Refresh every 2 seconds");
     println!("  Workers automatically fail and restart to demonstrate supervision");
-    
+
     Ok(())
 }
 
@@ -225,7 +226,7 @@ async fn render_children_recursive(
     depth: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
     const MAX_DEPTH: usize = 10; // Prevent infinite recursion
-    
+
     if depth > MAX_DEPTH {
         return Ok(());
     }
@@ -234,13 +235,13 @@ async fn render_children_recursive(
         let is_last = idx == children.len() - 1;
         let connector = if is_last { "└──" } else { "├──" };
         let continuation = if is_last { "    " } else { "│   " };
-        
+
         // Icon based on type
         let type_icon = match child.child_type {
             ChildType::Supervisor => "📁",
             ChildType::Worker => "⚙️",
         };
-        
+
         // Policy indicator
         let policy_str = match child.restart_policy {
             Some(RestartPolicy::Permanent) => " ♻️ ",
@@ -248,7 +249,7 @@ async fn render_children_recursive(
             Some(RestartPolicy::Transient) => " 🔄",
             None => "   ",
         };
-        
+
         // Status indicator for workers
         let status_str = if child.child_type == ChildType::Worker {
             if let Some(state) = stats.get_status(&child.id) {
@@ -266,7 +267,7 @@ async fn render_children_recursive(
         } else {
             "   "
         };
-        
+
         // Restart count
         let restart_info = if child.child_type == ChildType::Worker {
             if let Some(state) = stats.get_status(&child.id) {
@@ -281,18 +282,12 @@ async fn render_children_recursive(
         } else {
             String::new()
         };
-        
+
         println!(
             "{}{} {} {}{} {}{}",
-            prefix,
-            connector,
-            type_icon,
-            child.id,
-            policy_str,
-            status_str,
-            restart_info
+            prefix, connector, type_icon, child.id, policy_str, status_str, restart_info
         );
-        
+
         // If it's a supervisor, we could recursively query its children
         // But since we don't have nested supervisor handles, we show a placeholder
         if child.child_type == ChildType::Supervisor {
@@ -300,7 +295,7 @@ async fn render_children_recursive(
             println!("{}    ↳ (nested children...)", new_prefix);
         }
     }
-    
+
     Ok(())
 }
 
@@ -310,7 +305,7 @@ async fn render_children_recursive(
 
 fn create_demo_tree(stats: Arc<RwLock<WorkerStats>>) -> SupervisorSpec<DemoWorker> {
     // Create a complex, multi-level tree structure
-    
+
     // Level 3: Database cluster
     let db_primary = SupervisorSpec::new("db-primary")
         .with_restart_strategy(RestartStrategy::OneForOne)
@@ -330,7 +325,7 @@ fn create_demo_tree(stats: Arc<RwLock<WorkerStats>>) -> SupervisorSpec<DemoWorke
             },
             RestartPolicy::Permanent,
         );
-    
+
     let db_replica = SupervisorSpec::new("db-replica")
         .with_restart_strategy(RestartStrategy::OneForOne)
         .with_worker(
@@ -349,7 +344,7 @@ fn create_demo_tree(stats: Arc<RwLock<WorkerStats>>) -> SupervisorSpec<DemoWorke
             },
             RestartPolicy::Permanent,
         );
-    
+
     // Level 2: Data layer
     let data_layer = SupervisorSpec::new("data-layer")
         .with_restart_strategy(RestartStrategy::RestForOne)
@@ -363,7 +358,7 @@ fn create_demo_tree(stats: Arc<RwLock<WorkerStats>>) -> SupervisorSpec<DemoWorke
             },
             RestartPolicy::Permanent,
         );
-    
+
     // Level 3: API workers
     let api_cluster = SupervisorSpec::new("api-cluster")
         .with_restart_strategy(RestartStrategy::OneForOne)
@@ -399,7 +394,7 @@ fn create_demo_tree(stats: Arc<RwLock<WorkerStats>>) -> SupervisorSpec<DemoWorke
             },
             RestartPolicy::Permanent,
         );
-    
+
     // Level 2: Application layer
     let app_layer = SupervisorSpec::new("application-layer")
         .with_restart_strategy(RestartStrategy::OneForOne)
@@ -420,7 +415,7 @@ fn create_demo_tree(stats: Arc<RwLock<WorkerStats>>) -> SupervisorSpec<DemoWorke
             },
             RestartPolicy::Permanent,
         );
-    
+
     // Level 3: Background jobs
     let job_workers = SupervisorSpec::new("job-workers")
         .with_restart_strategy(RestartStrategy::OneForOne)
@@ -448,7 +443,7 @@ fn create_demo_tree(stats: Arc<RwLock<WorkerStats>>) -> SupervisorSpec<DemoWorke
             },
             RestartPolicy::Temporary,
         );
-    
+
     // Level 1: Root supervisor
     SupervisorSpec::new("production-system")
         .with_restart_strategy(RestartStrategy::OneForOne)
@@ -492,28 +487,28 @@ fn create_demo_tree(stats: Arc<RwLock<WorkerStats>>) -> SupervisorSpec<DemoWorke
 #[tokio::main]
 async fn main() {
     println!("🚀 Starting Interactive Supervisor Tree Demo...\n");
-    
+
     // Create shared statistics
     let stats = Arc::new(RwLock::new(WorkerStats::new()));
-    
+
     // Build and start the supervisor tree
     let tree_spec = create_demo_tree(stats.clone());
     let root = SupervisorHandle::start(tree_spec);
-    
+
     println!("📦 Supervisor tree started!");
     println!("⏳ Initializing workers...\n");
-    
+
     // Give the tree time to initialize
     sleep(Duration::from_millis(1000)).await;
-    
+
     // Render loop
     let mut render_interval = interval(Duration::from_secs(2));
-    
+
     loop {
         render_interval.tick().await;
-        
+
         match render_tree(&root, &stats).await {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(e) => {
                 eprintln!("Error rendering tree: {}", e);
                 break;

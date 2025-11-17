@@ -1,8 +1,8 @@
 use ash_flare::{RestartPolicy, SupervisorHandle, SupervisorSpec, Worker};
 use async_trait::async_trait;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
-use tokio::time::{sleep, Duration};
+use std::sync::atomic::{AtomicU32, Ordering};
+use tokio::time::{Duration, sleep};
 
 struct TestWorker {
     counter: Arc<AtomicU32>,
@@ -34,15 +34,14 @@ async fn test_worker_basic_lifecycle() {
     let counter = Arc::new(AtomicU32::new(0));
     let counter_clone = Arc::clone(&counter);
 
-    let spec = SupervisorSpec::new("test")
-        .with_worker(
-            "worker-1",
-            move || TestWorker {
-                counter: Arc::clone(&counter_clone),
-                fail_after: Some(5),
-            },
-            RestartPolicy::Temporary,
-        );
+    let spec = SupervisorSpec::new("test").with_worker(
+        "worker-1",
+        move || TestWorker {
+            counter: Arc::clone(&counter_clone),
+            fail_after: Some(5),
+        },
+        RestartPolicy::Temporary,
+    );
 
     let handle = SupervisorHandle::start(spec);
     sleep(Duration::from_millis(100)).await;
@@ -58,21 +57,23 @@ async fn test_worker_permanent_restart() {
     let counter = Arc::new(AtomicU32::new(0));
     let counter_clone = Arc::clone(&counter);
 
-    let spec = SupervisorSpec::new("test")
-        .with_worker(
-            "worker-1",
-            move || TestWorker {
-                counter: Arc::clone(&counter_clone),
-                fail_after: Some(3),
-            },
-            RestartPolicy::Permanent,
-        );
+    let spec = SupervisorSpec::new("test").with_worker(
+        "worker-1",
+        move || TestWorker {
+            counter: Arc::clone(&counter_clone),
+            fail_after: Some(3),
+        },
+        RestartPolicy::Permanent,
+    );
 
     let handle = SupervisorHandle::start(spec);
     sleep(Duration::from_millis(200)).await;
 
     let count = counter.load(Ordering::SeqCst);
-    assert!(count > 3, "Worker should have restarted and continued counting");
+    assert!(
+        count > 3,
+        "Worker should have restarted and continued counting"
+    );
 
     handle.shutdown().await.unwrap();
 }
@@ -82,15 +83,14 @@ async fn test_worker_transient_normal_exit() {
     let counter = Arc::new(AtomicU32::new(0));
     let counter_clone = Arc::clone(&counter);
 
-    let spec = SupervisorSpec::new("test")
-        .with_worker(
-            "worker-1",
-            move || TestWorker {
-                counter: Arc::clone(&counter_clone),
-                fail_after: None,
-            },
-            RestartPolicy::Transient,
-        );
+    let spec = SupervisorSpec::new("test").with_worker(
+        "worker-1",
+        move || TestWorker {
+            counter: Arc::clone(&counter_clone),
+            fail_after: None,
+        },
+        RestartPolicy::Transient,
+    );
 
     let handle = SupervisorHandle::start(spec);
     sleep(Duration::from_millis(50)).await;

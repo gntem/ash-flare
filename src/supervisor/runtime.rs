@@ -23,6 +23,12 @@ pub(crate) enum SupervisorCommand<W: Worker> {
     WhichChildren {
         respond_to: oneshot::Sender<Result<Vec<ChildInfo>, SupervisorError>>,
     },
+    GetRestartStrategy {
+        respond_to: oneshot::Sender<RestartStrategy>,
+    },
+    GetUptime {
+        respond_to: oneshot::Sender<u64>,
+    },
     ChildTerminated {
         id: ChildId,
         reason: ChildExitReason,
@@ -47,6 +53,7 @@ pub(crate) struct SupervisorRuntime<W: Worker> {
     control_tx: mpsc::UnboundedSender<SupervisorCommand<W>>,
     restart_strategy: RestartStrategy,
     restart_tracker: RestartTracker,
+    created_at: std::time::Instant,
 }
 
 impl<W: Worker> SupervisorRuntime<W> {
@@ -60,11 +67,8 @@ impl<W: Worker> SupervisorRuntime<W> {
         for child_spec in spec.children {
             match child_spec {
                 ChildSpec::Worker(worker_spec) => {
-                    let worker = WorkerProcess::spawn(
-                        worker_spec,
-                        spec.name.clone(),
-                        control_tx.clone(),
-                    );
+                    let worker =
+                        WorkerProcess::spawn(worker_spec, spec.name.clone(), control_tx.clone());
                     children.push(Child::Worker(worker));
                 }
                 ChildSpec::Supervisor(supervisor_spec) => {
@@ -84,6 +88,7 @@ impl<W: Worker> SupervisorRuntime<W> {
             control_tx,
             restart_strategy: spec.restart_strategy,
             restart_tracker: RestartTracker::new(spec.restart_intensity),
+            created_at: std::time::Instant::now(),
         }
     }
 
@@ -101,6 +106,13 @@ impl<W: Worker> SupervisorRuntime<W> {
                 SupervisorCommand::WhichChildren { respond_to } => {
                     let result = self.handle_which_children();
                     let _ = respond_to.send(result);
+                }
+                SupervisorCommand::GetRestartStrategy { respond_to } => {
+                    let _ = respond_to.send(self.restart_strategy);
+                }
+                SupervisorCommand::GetUptime { respond_to } => {
+                    let uptime = self.created_at.elapsed().as_secs();
+                    let _ = respond_to.send(uptime);
                 }
                 SupervisorCommand::ChildTerminated { id, reason } => {
                     self.handle_child_terminated(id, reason).await;
@@ -128,7 +140,10 @@ impl<W: Worker> SupervisorRuntime<W> {
         let worker = WorkerProcess::spawn(spec, self.name.clone(), self.control_tx.clone());
 
         self.children.push(Child::Worker(worker));
-        println!("[{}] dynamically started child: {}", self.name, id);
+        slog::debug!(slog_scope::logger(), "dynamically started child";
+            "supervisor" => &self.name,
+            "child" => &id
+        );
 
         Ok(id)
     }
@@ -143,7 +158,10 @@ impl<W: Worker> SupervisorRuntime<W> {
         let mut child = self.children.remove(position);
         child.shutdown().await;
 
-        println!("[{}] terminated child: {}", self.name, id);
+        slog::debug!(slog_scope::logger(), "terminated child";
+            "supervisor" => &self.name,
+            "child" => id
+        );
         Ok(())
     }
 
@@ -162,14 +180,18 @@ impl<W: Worker> SupervisorRuntime<W> {
     }
 
     async fn handle_child_terminated(&mut self, id: ChildId, reason: ChildExitReason) {
-        println!("[{}] child {} terminated: {:?}", self.name, id, reason);
+        slog::debug!(slog_scope::logger(), "child terminated";
+            "supervisor" => &self.name,
+            "child" => &id,
+            "reason" => ?reason
+        );
 
         let position = match self.children.iter().position(|c| c.id() == &id) {
             Some(pos) => pos,
             None => {
-                eprintln!(
-                    "[{}] terminated child {} not found in children list",
-                    self.name, id
+                slog::warn!(slog_scope::logger(), "terminated child not found in list";
+                    "supervisor" => &self.name,
+                    "child" => &id
                 );
                 return;
             }
@@ -186,12 +208,11 @@ impl<W: Worker> SupervisorRuntime<W> {
         };
 
         if !should_restart {
-            println!(
-                "[{}] not restarting child {} (policy: {:?}, reason: {:?})",
-                self.name,
-                id,
-                self.children[position].restart_policy(),
-                reason
+            slog::debug!(slog_scope::logger(), "not restarting child";
+                "supervisor" => &self.name,
+                "child" => &id,
+                "policy" => ?self.children[position].restart_policy(),
+                "reason" => ?reason
             );
             self.children.remove(position);
             return;
@@ -199,9 +220,8 @@ impl<W: Worker> SupervisorRuntime<W> {
 
         // Check restart intensity
         if self.restart_tracker.record_restart() {
-            eprintln!(
-                "[{}] restart intensity exceeded, shutting down supervisor",
-                self.name
+            slog::error!(slog_scope::logger(), "restart intensity exceeded, shutting down";
+                "supervisor" => &self.name
             );
             self.shutdown_children().await;
             return;
@@ -234,27 +254,41 @@ impl<W: Worker> SupervisorRuntime<W> {
         // Restart based on type
         match restart_info {
             RestartInfo::Worker(spec) => {
-                println!("[{}] restarting worker: {}", self.name, spec.id);
+                slog::debug!(slog_scope::logger(), "restarting worker";
+                    "supervisor" => &self.name,
+                    "worker" => &spec.id
+                );
                 let new_worker =
                     WorkerProcess::spawn(spec.clone(), self.name.clone(), self.control_tx.clone());
                 self.children[position] = Child::Worker(new_worker);
-                println!("[{}] restarted worker: {}", self.name, spec.id);
+                slog::debug!(slog_scope::logger(), "worker restarted";
+                    "supervisor" => &self.name,
+                    "worker" => &spec.id
+                );
             }
             RestartInfo::Supervisor(spec) => {
                 let name = spec.name.clone();
-                println!("[{}] restarting supervisor: {}", self.name, name);
+                slog::debug!(slog_scope::logger(), "restarting supervisor";
+                    "supervisor" => &self.name,
+                    "child_supervisor" => &name
+                );
                 let new_handle = SupervisorHandle::start((*spec).clone());
                 self.children[position] = Child::Supervisor {
                     handle: new_handle,
                     spec,
                 };
-                println!("[{}] restarted supervisor: {}", self.name, name);
+                slog::debug!(slog_scope::logger(), "supervisor restarted";
+                    "supervisor" => &self.name,
+                    "child_supervisor" => &name
+                );
             }
         }
     }
 
     async fn restart_all_children(&mut self) {
-        println!("[{}] restarting all children (one_for_all)", self.name);
+        slog::debug!(slog_scope::logger(), "restarting all children (one_for_all)";
+            "supervisor" => &self.name
+        );
 
         // Shutdown all children
         for child in &mut self.children {
@@ -268,15 +302,18 @@ impl<W: Worker> SupervisorRuntime<W> {
                 let new_worker =
                     WorkerProcess::spawn(spec.clone(), self.name.clone(), self.control_tx.clone());
                 *child = Child::Worker(new_worker);
-                println!("[{}] restarted child: {}", self.name, spec.id);
+                slog::debug!(slog_scope::logger(), "child restarted";
+                    "supervisor" => &self.name,
+                    "child" => &spec.id
+                );
             }
         }
     }
 
     async fn restart_from(&mut self, position: usize) {
-        println!(
-            "[{}] restarting from position {} (rest_for_one)",
-            self.name, position
+        slog::debug!(slog_scope::logger(), "restarting from position (rest_for_one)";
+            "supervisor" => &self.name,
+            "position" => position
         );
 
         for i in position..self.children.len() {
@@ -287,7 +324,10 @@ impl<W: Worker> SupervisorRuntime<W> {
                 let new_worker =
                     WorkerProcess::spawn(spec.clone(), self.name.clone(), self.control_tx.clone());
                 self.children[i] = Child::Worker(new_worker);
-                println!("[{}] restarted child: {}", self.name, spec.id);
+                slog::debug!(slog_scope::logger(), "child restarted";
+                    "supervisor" => &self.name,
+                    "child" => &spec.id
+                );
             }
         }
     }
@@ -297,7 +337,10 @@ impl<W: Worker> SupervisorRuntime<W> {
             let id = child.id().to_string();
             let mut child = child;
             child.shutdown().await;
-            println!("[{}] shut down child: {}", self.name, id);
+            slog::debug!(slog_scope::logger(), "shut down child";
+                "supervisor" => &self.name,
+                "child" => &id
+            );
         }
     }
 }

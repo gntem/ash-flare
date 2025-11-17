@@ -3,9 +3,7 @@
 //! This example demonstrates running a supervisor in a detached mode
 //! where it can be controlled via Unix socket commands.
 
-use ash_flare::distributed::{
-    RemoteSupervisorHandle, SupervisorAddress, SupervisorServer,
-};
+use ash_flare::distributed::{RemoteSupervisorHandle, SupervisorAddress, SupervisorServer};
 use ash_flare::{RestartPolicy, RestartStrategy, SupervisorHandle, SupervisorSpec, Worker};
 use async_trait::async_trait;
 use std::time::Duration;
@@ -28,9 +26,7 @@ struct Counter {
 
 impl Counter {
     fn new(name: impl Into<String>) -> Self {
-        Self {
-            name: name.into(),
-        }
+        Self { name: name.into() }
     }
 }
 
@@ -57,9 +53,21 @@ impl Worker for Counter {
 async fn run_supervisor_server(socket_path: String) {
     let spec = SupervisorSpec::new("remote_supervisor")
         .with_restart_strategy(RestartStrategy::OneForOne)
-        .with_worker("worker1", || Counter::new("worker1"), RestartPolicy::Permanent)
-        .with_worker("worker2", || Counter::new("worker2"), RestartPolicy::Permanent)
-        .with_worker("worker3", || Counter::new("worker3"), RestartPolicy::Permanent);
+        .with_worker(
+            "worker1",
+            || Counter::new("worker1"),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "worker2",
+            || Counter::new("worker2"),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "worker3",
+            || Counter::new("worker3"),
+            RestartPolicy::Permanent,
+        );
 
     let supervisor = SupervisorHandle::start(spec);
 
@@ -142,7 +150,7 @@ async fn main() {
 
     // Check if we should run as server or client
     let args: Vec<String> = std::env::args().collect();
-    
+
     if args.len() > 1 && args[1] == "server" {
         run_supervisor_server(socket_path.to_string()).await;
     } else {
@@ -150,11 +158,11 @@ async fn main() {
         println!("\nℹ️  To run this demo:");
         println!("   Terminal 1: cargo run --example distributed server");
         println!("   Terminal 2: cargo run --example distributed\n");
-        
+
         // For demo purposes, spawn both in same process
         tokio::spawn(run_supervisor_server(socket_path.to_string()));
         run_client(socket_path.to_string()).await;
-        
+
         sleep(Duration::from_secs(1)).await;
     }
 }

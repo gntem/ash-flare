@@ -1,17 +1,15 @@
 //! Realistic example: HTTP service health monitoring system
-//! 
+//!
 //! This demonstrates a practical supervision tree for monitoring multiple web services.
 //! The supervisor manages independent monitor workers that check service health periodically.
-//! 
+//!
 //! Architecture:
 //! - Each monitor worker checks one service endpoint
 //! - Workers restart automatically if they crash (Permanent policy)
 //! - OneForOne strategy: only failed monitors restart, others continue
 //! - Monitors can be added/removed dynamically as services come and go
 
-use ash_flare::{
-    RestartPolicy, RestartStrategy, SupervisorHandle, SupervisorSpec, Worker,
-};
+use ash_flare::{RestartPolicy, RestartStrategy, SupervisorHandle, SupervisorSpec, Worker};
 use async_trait::async_trait;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -65,15 +63,17 @@ impl Worker for ServiceMonitor {
     type Error = MonitorError;
 
     async fn initialize(&mut self) -> Result<(), Self::Error> {
-        println!("📡 [{}] Starting health monitor for {}", 
-            self.service_name, self.endpoint);
+        println!(
+            "📡 [{}] Starting health monitor for {}",
+            self.service_name, self.endpoint
+        );
         Ok(())
     }
 
     async fn run(&mut self) -> Result<(), Self::Error> {
         loop {
             let status = self.check_health().await;
-            
+
             match status {
                 HealthStatus::Healthy => {
                     self.failure_count = 0;
@@ -84,12 +84,14 @@ impl Worker for ServiceMonitor {
                 }
                 HealthStatus::Unhealthy => {
                     self.failure_count += 1;
-                    println!("❌ [{}] Service unhealthy (failures: {}/{})", 
-                        self.service_name, self.failure_count, self.max_failures);
-                    
+                    println!(
+                        "❌ [{}] Service unhealthy (failures: {}/{})",
+                        self.service_name, self.failure_count, self.max_failures
+                    );
+
                     if self.failure_count >= self.max_failures {
                         return Err(MonitorError(format!(
-                            "Service {} exceeded failure threshold", 
+                            "Service {} exceeded failure threshold",
                             self.service_name
                         )));
                     }
@@ -224,23 +226,32 @@ async fn main() {
         .with_restart_strategy(RestartStrategy::OneForOne)
         .with_worker(
             "api_gateway",
-            || MonitoringWorker::ServiceMonitor(
-                ServiceMonitor::new("API Gateway", "https://api.example.com/health")
-            ),
+            || {
+                MonitoringWorker::ServiceMonitor(ServiceMonitor::new(
+                    "API Gateway",
+                    "https://api.example.com/health",
+                ))
+            },
             RestartPolicy::Permanent,
         )
         .with_worker(
             "auth_service",
-            || MonitoringWorker::ServiceMonitor(
-                ServiceMonitor::new("Auth Service", "https://auth.example.com/health")
-            ),
+            || {
+                MonitoringWorker::ServiceMonitor(ServiceMonitor::new(
+                    "Auth Service",
+                    "https://auth.example.com/health",
+                ))
+            },
             RestartPolicy::Permanent,
         )
         .with_worker(
             "payment_service",
-            || MonitoringWorker::ServiceMonitor(
-                ServiceMonitor::new("Payment Service", "https://pay.example.com/health")
-            ),
+            || {
+                MonitoringWorker::ServiceMonitor(ServiceMonitor::new(
+                    "Payment Service",
+                    "https://pay.example.com/health",
+                ))
+            },
             RestartPolicy::Permanent,
         )
         .with_worker(
@@ -265,9 +276,12 @@ async fn main() {
     let _ = supervisor
         .start_child(
             "cdn_service",
-            || MonitoringWorker::ServiceMonitor(
-                ServiceMonitor::new("CDN Service", "https://cdn.example.com/health")
-            ),
+            || {
+                MonitoringWorker::ServiceMonitor(ServiceMonitor::new(
+                    "CDN Service",
+                    "https://cdn.example.com/health",
+                ))
+            },
             RestartPolicy::Permanent,
         )
         .await;
@@ -300,7 +314,7 @@ async fn main() {
 
     println!("\n🛑 Shutting down monitoring system...");
     supervisor.shutdown().await.ok();
-    
+
     sleep(Duration::from_millis(500)).await;
     println!("✅ System shutdown complete");
 }

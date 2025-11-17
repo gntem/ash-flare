@@ -131,11 +131,13 @@ async fn run_worker<W: Worker, Cmd>(
     Cmd: From<WorkerTermination>,
 {
     let qualified_name = format!("{}/{}", supervisor_name, worker_id);
-    println!("[{}] worker online", qualified_name);
 
     // Initialize the worker
     if let Err(err) = worker.initialize().await {
-        eprintln!("[{}] worker initialization failed: {}", qualified_name, err);
+        slog::error!(slog_scope::logger(), "worker initialization failed";
+            "worker" => &qualified_name,
+            "error" => %err
+        );
         let _ = control_tx.send(
             WorkerTermination {
                 id: worker_id,
@@ -143,28 +145,35 @@ async fn run_worker<W: Worker, Cmd>(
             }
             .into(),
         );
-        println!("[{}] worker offline", qualified_name);
         return;
     }
+
+    slog::debug!(slog_scope::logger(), "worker started"; "worker" => &qualified_name);
 
     // Run the worker's main loop
     let exit_reason = match worker.run().await {
         Ok(()) => {
-            println!("[{}] worker completed normally", qualified_name);
+            slog::debug!(slog_scope::logger(), "worker completed normally"; "worker" => &qualified_name);
             ChildExitReason::Normal
         }
         Err(err) => {
-            eprintln!("[{}] worker failed: {}", qualified_name, err);
+            slog::warn!(slog_scope::logger(), "worker failed";
+                "worker" => &qualified_name,
+                "error" => %err
+            );
             ChildExitReason::Abnormal
         }
     };
 
     // Shutdown the worker
     if let Err(err) = worker.shutdown().await {
-        eprintln!("[{}] worker shutdown failed: {}", qualified_name, err);
+        slog::error!(slog_scope::logger(), "worker shutdown failed";
+            "worker" => &qualified_name,
+            "error" => %err
+        );
     }
 
-    println!("[{}] worker offline", qualified_name);
+    slog::debug!(slog_scope::logger(), "worker stopped"; "worker" => &qualified_name);
 
     // Notify supervisor of termination
     let _ = control_tx.send(
@@ -179,8 +188,11 @@ async fn run_worker<W: Worker, Cmd>(
 /// Errors returned by worker operations.
 #[derive(Debug)]
 pub enum WorkerError {
+    /// Command channel was closed unexpectedly
     CommandChannelClosed(String),
+    /// Worker panicked during execution
     WorkerPanicked(String),
+    /// Worker failed with an error
     WorkerFailed(String),
 }
 

@@ -69,14 +69,18 @@ impl<W: Worker> SupervisorSpec<W> {
         factory: impl Fn() -> W + Send + Sync + 'static,
         restart_policy: RestartPolicy,
     ) -> Self {
-        self.children
-            .push(ChildSpec::Worker(WorkerSpec::new(id, factory, restart_policy)));
+        self.children.push(ChildSpec::Worker(WorkerSpec::new(
+            id,
+            factory,
+            restart_policy,
+        )));
         self
     }
 
     /// Adds a nested supervisor child to this supervisor specification.
     pub fn with_supervisor(mut self, supervisor: SupervisorSpec<W>) -> Self {
-        self.children.push(ChildSpec::Supervisor(Arc::new(supervisor)));
+        self.children
+            .push(ChildSpec::Supervisor(Arc::new(supervisor)));
         self
     }
 }

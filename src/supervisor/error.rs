@@ -5,10 +5,15 @@ use std::fmt;
 /// Errors returned by supervisor operations.
 #[derive(Debug)]
 pub enum SupervisorError {
+    /// Supervisor has no children
     NoChildren(String),
+    /// All children have failed
     AllChildrenFailed(String),
+    /// Supervisor is shutting down
     ShuttingDown(String),
+    /// Child with this ID already exists
     ChildAlreadyExists(String),
+    /// Child with this ID not found
     ChildNotFound(String),
 }
 

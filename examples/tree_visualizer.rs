@@ -1,9 +1,11 @@
 //! Tree visualization example - renders supervisor tree structure in terminal
 
-use ash_flare::{ChildType, RestartPolicy, RestartStrategy, SupervisorHandle, SupervisorSpec, Worker};
+use ash_flare::{
+    ChildType, RestartPolicy, RestartStrategy, SupervisorHandle, SupervisorSpec, Worker,
+};
 use async_trait::async_trait;
 use std::time::Duration;
-use tokio::time::{sleep, interval};
+use tokio::time::{interval, sleep};
 
 #[derive(Debug)]
 struct WorkerError(String);
@@ -39,7 +41,7 @@ impl Worker for SimpleWorker {
     async fn run(&mut self) -> Result<(), Self::Error> {
         loop {
             self.counter += 1;
-            
+
             if self.counter >= self.fail_after {
                 return Err(WorkerError(format!(
                     "{} failed after {} ticks",
@@ -55,21 +57,21 @@ impl Worker for SimpleWorker {
 async fn render_supervisor_tree(root: &SupervisorHandle<SimpleWorker>) {
     // Clear screen
     print!("\x1B[2J\x1B[1;1H");
-    
+
     println!("╔═══════════════════════════════════════════════════════════════════╗");
     println!("║              SUPERVISOR TREE VISUALIZATION                        ║");
     println!("╚═══════════════════════════════════════════════════════════════════╝\n");
-    
+
     println!("Legend: 📁 Supervisor  ⚙️  Worker  │  ♻️  Permanent  ⏱️  Temporary  🔄 Transient\n");
-    
+
     // Render root with tree structure
     println!("🌳 {} (root)", root.name());
-    
+
     // Get root's children
     if let Ok(children) = root.which_children().await {
         render_children(&children, "", true).await;
     }
-    
+
     println!("\n{}", "═".repeat(70));
     println!("Press Ctrl+C to exit");
 }
@@ -88,9 +90,12 @@ async fn render_children(children: &[ash_flare::ChildInfo], prefix: &str, _is_ro
             Some(RestartPolicy::Transient) => " 🔄",
             None => "",
         };
-        
-        println!("{}{} {} {}{}", prefix, connector, icon, child.id, policy_str);
-        
+
+        println!(
+            "{}{} {} {}{}",
+            prefix, connector, icon, child.id, policy_str
+        );
+
         // Note: We can't recursively query supervisor children because we don't have handles
         // This would require API changes to get nested supervisor handles
     }
@@ -231,7 +236,7 @@ async fn main() {
 
     // Render tree every 8 seconds
     let mut render_interval = interval(Duration::from_secs(8));
-    
+
     println!("Starting tree visualization (refreshes every 8 seconds)...\n");
     sleep(Duration::from_secs(1)).await;
 

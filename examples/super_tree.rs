@@ -127,7 +127,10 @@ async fn main() {
     println!("\n=== Querying tree ===\n");
     if let Ok(children) = handle.which_children().await {
         for child in children {
-            println!("  {:?}: {} ({:?})", child.child_type, child.id, child.restart_policy);
+            println!(
+                "  {:?}: {} ({:?})",
+                child.child_type, child.id, child.restart_policy
+            );
         }
     }
 

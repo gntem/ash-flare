@@ -3,9 +3,9 @@ use ash_flare::{
     Worker,
 };
 use async_trait::async_trait;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
-use tokio::time::{sleep, Duration};
+use std::sync::atomic::{AtomicU32, Ordering};
+use tokio::time::{Duration, sleep};
 
 struct SimpleWorker {
     counter: Arc<AtomicU32>,
@@ -38,14 +38,13 @@ async fn test_supervisor_with_children() {
     let counter = Arc::new(AtomicU32::new(0));
     let c = Arc::clone(&counter);
 
-    let spec = SupervisorSpec::new("test")
-        .with_worker(
-            "worker-1",
-            move || SimpleWorker {
-                counter: Arc::clone(&c),
-            },
-            RestartPolicy::Permanent,
-        );
+    let spec = SupervisorSpec::new("test").with_worker(
+        "worker-1",
+        move || SimpleWorker {
+            counter: Arc::clone(&c),
+        },
+        RestartPolicy::Permanent,
+    );
 
     let handle = SupervisorHandle::start(spec);
     sleep(Duration::from_millis(50)).await;
@@ -93,14 +92,13 @@ async fn test_supervisor_terminate_child() {
     let counter = Arc::new(AtomicU32::new(0));
     let c = Arc::clone(&counter);
 
-    let spec = SupervisorSpec::new("test")
-        .with_worker(
-            "worker-1",
-            move || SimpleWorker {
-                counter: Arc::clone(&c),
-            },
-            RestartPolicy::Permanent,
-        );
+    let spec = SupervisorSpec::new("test").with_worker(
+        "worker-1",
+        move || SimpleWorker {
+            counter: Arc::clone(&c),
+        },
+        RestartPolicy::Permanent,
+    );
 
     let handle = SupervisorHandle::start(spec);
     sleep(Duration::from_millis(50)).await;
@@ -119,14 +117,14 @@ async fn test_supervisor_terminate_child() {
 
 #[tokio::test]
 async fn test_supervisor_restart_strategies() {
-    let spec_one_for_one: SupervisorSpec<SimpleWorker> = SupervisorSpec::new("test-one-for-one")
-        .with_restart_strategy(RestartStrategy::OneForOne);
+    let spec_one_for_one: SupervisorSpec<SimpleWorker> =
+        SupervisorSpec::new("test-one-for-one").with_restart_strategy(RestartStrategy::OneForOne);
 
-    let spec_one_for_all: SupervisorSpec<SimpleWorker> = SupervisorSpec::new("test-one-for-all")
-        .with_restart_strategy(RestartStrategy::OneForAll);
+    let spec_one_for_all: SupervisorSpec<SimpleWorker> =
+        SupervisorSpec::new("test-one-for-all").with_restart_strategy(RestartStrategy::OneForAll);
 
-    let spec_rest_for_one: SupervisorSpec<SimpleWorker> = SupervisorSpec::new("test-rest-for-one")
-        .with_restart_strategy(RestartStrategy::RestForOne);
+    let spec_rest_for_one: SupervisorSpec<SimpleWorker> =
+        SupervisorSpec::new("test-rest-for-one").with_restart_strategy(RestartStrategy::RestForOne);
 
     let h1 = SupervisorHandle::start(spec_one_for_one);
     let h2 = SupervisorHandle::start(spec_one_for_all);
@@ -139,8 +137,8 @@ async fn test_supervisor_restart_strategies() {
 
 #[tokio::test]
 async fn test_supervisor_restart_intensity() {
-    let spec: SupervisorSpec<SimpleWorker> = SupervisorSpec::new("test")
-        .with_restart_intensity(RestartIntensity {
+    let spec: SupervisorSpec<SimpleWorker> =
+        SupervisorSpec::new("test").with_restart_intensity(RestartIntensity {
             max_restarts: 10,
             within_seconds: 5,
         });
@@ -154,17 +152,15 @@ async fn test_nested_supervisors() {
     let counter = Arc::new(AtomicU32::new(0));
     let c = Arc::clone(&counter);
 
-    let child_spec = SupervisorSpec::new("child-supervisor")
-        .with_worker(
-            "nested-worker",
-            move || SimpleWorker {
-                counter: Arc::clone(&c),
-            },
-            RestartPolicy::Permanent,
-        );
+    let child_spec = SupervisorSpec::new("child-supervisor").with_worker(
+        "nested-worker",
+        move || SimpleWorker {
+            counter: Arc::clone(&c),
+        },
+        RestartPolicy::Permanent,
+    );
 
-    let parent_spec = SupervisorSpec::new("parent-supervisor")
-        .with_supervisor(child_spec);
+    let parent_spec = SupervisorSpec::new("parent-supervisor").with_supervisor(child_spec);
 
     let handle = SupervisorHandle::start(parent_spec);
     sleep(Duration::from_millis(50)).await;

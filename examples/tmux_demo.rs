@@ -1,16 +1,18 @@
 //! Tmux Split Panel Demo
-//! 
+//!
 //! This demo creates two tmux panes:
 //! - Left pane: Real-time supervisor tree visualization
 //! - Right pane: Live worker logs and events
 
-use ash_flare::{ChildType, RestartPolicy, RestartStrategy, SupervisorHandle, SupervisorSpec, Worker};
+use ash_flare::{
+    ChildType, RestartPolicy, RestartStrategy, SupervisorHandle, SupervisorSpec, Worker,
+};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
-use tokio::time::{sleep, interval};
+use tokio::time::{interval, sleep};
 
 // ============================================================================
 // Shared Event Log
@@ -42,7 +44,7 @@ impl EventLog {
     async fn log(&self, event: LogEvent) {
         let mut events = self.events.write().await;
         events.push((std::time::Instant::now(), event));
-        
+
         // Keep only the last N events
         let len = events.len();
         if len > self.max_events {
@@ -52,7 +54,8 @@ impl EventLog {
 
     async fn get_recent(&self, count: usize) -> Vec<(std::time::Instant, LogEvent)> {
         let events = self.events.read().await;
-        events.iter()
+        events
+            .iter()
             .rev()
             .take(count)
             .cloned()
@@ -87,7 +90,12 @@ struct DemoWorker {
 }
 
 impl DemoWorker {
-    fn new(name: impl Into<String>, fail_after: u32, stats: Arc<RwLock<WorkerStats>>, event_log: EventLog) -> Self {
+    fn new(
+        name: impl Into<String>,
+        fail_after: u32,
+        stats: Arc<RwLock<WorkerStats>>,
+        event_log: EventLog,
+    ) -> Self {
         let name_str = name.into();
         Self {
             name: name_str,
@@ -109,14 +117,16 @@ impl Worker for DemoWorker {
             let mut stats = self.stats.write().await;
             stats.mark_running(&self.name);
         }
-        
-        self.event_log.log(LogEvent::WorkerStarted(self.name.clone())).await;
+
+        self.event_log
+            .log(LogEvent::WorkerStarted(self.name.clone()))
+            .await;
 
         loop {
             let mut counter = self.counter.write().await;
             *counter += 1;
             let current = *counter;
-            
+
             // Update heartbeat
             {
                 let mut stats = self.stats.write().await;
@@ -125,9 +135,13 @@ impl Worker for DemoWorker {
 
             // Log every few ticks
             if current % 5 == 0 {
-                self.event_log.log(LogEvent::WorkerRunning(self.name.clone(), current)).await;
+                self.event_log
+                    .log(LogEvent::WorkerRunning(self.name.clone(), current))
+                    .await;
             } else {
-                self.event_log.log(LogEvent::Heartbeat(self.name.clone())).await;
+                self.event_log
+                    .log(LogEvent::Heartbeat(self.name.clone()))
+                    .await;
             }
 
             if current >= self.fail_after {
@@ -136,10 +150,14 @@ impl Worker for DemoWorker {
                     let mut stats = self.stats.write().await;
                     stats.mark_failed(&self.name);
                 }
-                
-                self.event_log.log(LogEvent::WorkerFailed(self.name.clone(), current)).await;
-                self.event_log.log(LogEvent::WorkerRestarting(self.name.clone())).await;
-                
+
+                self.event_log
+                    .log(LogEvent::WorkerFailed(self.name.clone(), current))
+                    .await;
+                self.event_log
+                    .log(LogEvent::WorkerRestarting(self.name.clone()))
+                    .await;
+
                 return Err(WorkerError(format!(
                     "{} crashed after {} ticks",
                     self.name, current
@@ -191,12 +209,12 @@ impl WorkerStats {
             restarts: 0,
             last_heartbeat: std::time::Instant::now(),
         });
-        
+
         if state.status == WorkerStatus::Failed || state.status == WorkerStatus::Restarting {
             state.restarts += 1;
             self.total_restarts += 1;
         }
-        
+
         state.status = WorkerStatus::Running;
         state.last_heartbeat = std::time::Instant::now();
     }
@@ -228,41 +246,62 @@ async fn render_tree_pane(
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Clear screen
     print!("\x1B[2J\x1B[1;1H");
-    
+
     // Colorful header
-    println!("\x1B[1;36m╔═══════════════════════════════════════════════════════════════════════════════╗\x1B[0m");
-    println!("\x1B[1;36m║\x1B[0m\x1B[1;35m                    🌳 SUPERVISOR TREE STATE 🌳\x1B[0m                            \x1B[1;36m║\x1B[0m");
-    println!("\x1B[1;36m╚═══════════════════════════════════════════════════════════════════════════════╝\x1B[0m");
-    
+    println!(
+        "\x1B[1;36m╔═══════════════════════════════════════════════════════════════════════════════╗\x1B[0m"
+    );
+    println!(
+        "\x1B[1;36m║\x1B[0m\x1B[1;35m                    🌳 SUPERVISOR TREE STATE 🌳\x1B[0m                            \x1B[1;36m║\x1B[0m"
+    );
+    println!(
+        "\x1B[1;36m╚═══════════════════════════════════════════════════════════════════════════════╝\x1B[0m"
+    );
+
     // Legend with colors
     println!("\n\x1B[1;33m📊 LEGEND:\x1B[0m");
     println!("  \x1B[1;34m📁 Supervisor\x1B[0m  │  \x1B[1;32m⚙️  Worker\x1B[0m");
-    println!("  \x1B[1;35m♻️  Permanent\x1B[0m  │  \x1B[1;33m⏱️  Temporary\x1B[0m  │  \x1B[1;36m🔄 Transient\x1B[0m");
-    println!("  \x1B[1;32m✅ Running\x1B[0m    │  \x1B[1;31m❌ Failed\x1B[0m     │  \x1B[1;33m🔄 Restarting\x1B[0m");
-    
+    println!(
+        "  \x1B[1;35m♻️  Permanent\x1B[0m  │  \x1B[1;33m⏱️  Temporary\x1B[0m  │  \x1B[1;36m🔄 Transient\x1B[0m"
+    );
+    println!(
+        "  \x1B[1;32m✅ Running\x1B[0m    │  \x1B[1;31m❌ Failed\x1B[0m     │  \x1B[1;33m🔄 Restarting\x1B[0m"
+    );
+
     // Statistics
     let stats_guard = stats.read().await;
-    let running_count = stats_guard.states.values()
+    let running_count = stats_guard
+        .states
+        .values()
         .filter(|s| s.status == WorkerStatus::Running)
         .count();
-    
-    println!("\n\x1B[1;33m📈 STATS:\x1B[0m Workers: \x1B[1;32m{}\x1B[0m  │  Total Restarts: \x1B[1;35m{}\x1B[0m", 
-        running_count, stats_guard.total_restarts);
-    
+
+    println!(
+        "\n\x1B[1;33m📈 STATS:\x1B[0m Workers: \x1B[1;32m{}\x1B[0m  │  Total Restarts: \x1B[1;35m{}\x1B[0m",
+        running_count, stats_guard.total_restarts
+    );
+
     println!("\n\x1B[1;36m🌳 TREE:\x1B[0m");
-    println!("\x1B[2;36m─────────────────────────────────────────────────────────────────────────────────\x1B[0m");
-    
+    println!(
+        "\x1B[2;36m─────────────────────────────────────────────────────────────────────────────────\x1B[0m"
+    );
+
     // Render root
-    println!("\x1B[1;35m📦 {}\x1B[0m \x1B[2;37m(root)\x1B[0m", root.name());
-    
+    println!(
+        "\x1B[1;35m📦 {}\x1B[0m \x1B[2;37m(root)\x1B[0m",
+        root.name()
+    );
+
     // Render children recursively
     if let Ok(children) = root.which_children().await {
         render_children(&children, "", &stats_guard).await?;
     }
-    
-    println!("\n\x1B[2;36m─────────────────────────────────────────────────────────────────────────────────\x1B[0m");
+
+    println!(
+        "\n\x1B[2;36m─────────────────────────────────────────────────────────────────────────────────\x1B[0m"
+    );
     println!("\x1B[2;37mPress Ctrl+C to exit  │  Refresh: 2s\x1B[0m");
-    
+
     Ok(())
 }
 
@@ -275,19 +314,19 @@ async fn render_children(
         let is_last = idx == children.len() - 1;
         let connector = if is_last { "└──" } else { "├──" };
         let continuation = if is_last { "    " } else { "│   " };
-        
+
         let (type_icon, type_color) = match child.child_type {
             ChildType::Supervisor => ("📁", "\x1B[1;34m"),
             ChildType::Worker => ("⚙️", "\x1B[1;32m"),
         };
-        
+
         let policy_str = match child.restart_policy {
             Some(RestartPolicy::Permanent) => "\x1B[1;35m♻️\x1B[0m ",
             Some(RestartPolicy::Temporary) => "\x1B[1;33m⏱️\x1B[0m ",
             Some(RestartPolicy::Transient) => "\x1B[1;36m🔄\x1B[0m",
             None => "  ",
         };
-        
+
         let status_str = if child.child_type == ChildType::Worker {
             if let Some(state) = stats.get_status(&child.id) {
                 let age = state.last_heartbeat.elapsed().as_secs();
@@ -304,7 +343,7 @@ async fn render_children(
         } else {
             "  "
         };
-        
+
         let restart_info = if child.child_type == ChildType::Worker {
             if let Some(state) = stats.get_status(&child.id) {
                 if state.restarts > 0 {
@@ -318,18 +357,28 @@ async fn render_children(
         } else {
             String::new()
         };
-        
+
         println!(
             "\x1B[2;36m{}{}\x1B[0m {} {}{}\x1B[0m {} {}{}",
-            prefix, connector, type_icon, type_color, child.id, policy_str, status_str, restart_info
+            prefix,
+            connector,
+            type_icon,
+            type_color,
+            child.id,
+            policy_str,
+            status_str,
+            restart_info
         );
-        
+
         if child.child_type == ChildType::Supervisor {
             let new_prefix = format!("{}{}", prefix, continuation);
-            println!("\x1B[2;36m{}\x1B[0m    \x1B[2;33m↳ (nested)\x1B[0m", new_prefix);
+            println!(
+                "\x1B[2;36m{}\x1B[0m    \x1B[2;33m↳ (nested)\x1B[0m",
+                new_prefix
+            );
         }
     }
-    
+
     Ok(())
 }
 
@@ -340,41 +389,68 @@ async fn render_children(
 async fn render_log_pane(event_log: &EventLog) {
     // Clear screen
     print!("\x1B[2J\x1B[1;1H");
-    
-    println!("\x1B[1;36m╔═══════════════════════════════════════════════════════════════════════════════╗\x1B[0m");
-    println!("\x1B[1;36m║\x1B[0m\x1B[1;33m                      📝 WORKER EVENT LOG 📝\x1B[0m                              \x1B[1;36m║\x1B[0m");
-    println!("\x1B[1;36m╚═══════════════════════════════════════════════════════════════════════════════╝\x1B[0m\n");
-    
+
+    println!(
+        "\x1B[1;36m╔═══════════════════════════════════════════════════════════════════════════════╗\x1B[0m"
+    );
+    println!(
+        "\x1B[1;36m║\x1B[0m\x1B[1;33m                      📝 WORKER EVENT LOG 📝\x1B[0m                              \x1B[1;36m║\x1B[0m"
+    );
+    println!(
+        "\x1B[1;36m╚═══════════════════════════════════════════════════════════════════════════════╝\x1B[0m\n"
+    );
+
     let events = event_log.get_recent(100).await;
-    
+
     if events.is_empty() {
         println!("  \x1B[2;37mNo events yet...\x1B[0m\n");
     } else {
         for (timestamp, event) in events.iter().rev().take(35) {
             let elapsed = timestamp.elapsed();
-            let time_str = format!("\x1B[2;36m{:>3}.{:03}s\x1B[0m", elapsed.as_secs(), elapsed.subsec_millis());
-            
+            let time_str = format!(
+                "\x1B[2;36m{:>3}.{:03}s\x1B[0m",
+                elapsed.as_secs(),
+                elapsed.subsec_millis()
+            );
+
             match event {
                 LogEvent::WorkerStarted(name) => {
-                    println!("  {} \x1B[2;36m│\x1B[0m \x1B[1;32m🚀\x1B[0m \x1B[1;37m{}\x1B[0m \x1B[32mstarted\x1B[0m", time_str, name);
+                    println!(
+                        "  {} \x1B[2;36m│\x1B[0m \x1B[1;32m🚀\x1B[0m \x1B[1;37m{}\x1B[0m \x1B[32mstarted\x1B[0m",
+                        time_str, name
+                    );
                 }
                 LogEvent::WorkerRunning(name, tick) => {
-                    println!("  {} \x1B[2;36m│\x1B[0m \x1B[1;33m⚡\x1B[0m \x1B[1;37m{}\x1B[0m tick \x1B[1;33m#{}\x1B[0m", time_str, name, tick);
+                    println!(
+                        "  {} \x1B[2;36m│\x1B[0m \x1B[1;33m⚡\x1B[0m \x1B[1;37m{}\x1B[0m tick \x1B[1;33m#{}\x1B[0m",
+                        time_str, name, tick
+                    );
                 }
                 LogEvent::WorkerFailed(name, tick) => {
-                    println!("  {} \x1B[2;36m│\x1B[0m \x1B[1;31m❌\x1B[0m \x1B[1;37m{}\x1B[0m \x1B[1;31mFAILED\x1B[0m at tick \x1B[31m#{}\x1B[0m", time_str, name, tick);
+                    println!(
+                        "  {} \x1B[2;36m│\x1B[0m \x1B[1;31m❌\x1B[0m \x1B[1;37m{}\x1B[0m \x1B[1;31mFAILED\x1B[0m at tick \x1B[31m#{}\x1B[0m",
+                        time_str, name, tick
+                    );
                 }
                 LogEvent::WorkerRestarting(name) => {
-                    println!("  {} \x1B[2;36m│\x1B[0m \x1B[1;33m🔄\x1B[0m \x1B[1;37m{}\x1B[0m \x1B[33mrestarting...\x1B[0m", time_str, name);
+                    println!(
+                        "  {} \x1B[2;36m│\x1B[0m \x1B[1;33m🔄\x1B[0m \x1B[1;37m{}\x1B[0m \x1B[33mrestarting...\x1B[0m",
+                        time_str, name
+                    );
                 }
                 LogEvent::Heartbeat(name) => {
-                    println!("  {} \x1B[2;36m│\x1B[0m \x1B[35m💓\x1B[0m \x1B[2;37m{}\x1B[0m \x1B[2;37mheartbeat\x1B[0m", time_str, name);
+                    println!(
+                        "  {} \x1B[2;36m│\x1B[0m \x1B[35m💓\x1B[0m \x1B[2;37m{}\x1B[0m \x1B[2;37mheartbeat\x1B[0m",
+                        time_str, name
+                    );
                 }
             }
         }
     }
-    
-    println!("\n\x1B[2;36m─────────────────────────────────────────────────────────────────────────────────\x1B[0m");
+
+    println!(
+        "\n\x1B[2;36m─────────────────────────────────────────────────────────────────────────────────\x1B[0m"
+    );
     println!("\x1B[2;37mShowing last 35 events  │  Refresh: 1s\x1B[0m");
 }
 
@@ -382,7 +458,10 @@ async fn render_log_pane(event_log: &EventLog) {
 // Demo Tree Setup
 // ============================================================================
 
-fn create_demo_tree(stats: Arc<RwLock<WorkerStats>>, event_log: EventLog) -> SupervisorSpec<DemoWorker> {
+fn create_demo_tree(
+    stats: Arc<RwLock<WorkerStats>>,
+    event_log: EventLog,
+) -> SupervisorSpec<DemoWorker> {
     // Database layer
     let db_cluster = SupervisorSpec::new("database")
         .with_restart_strategy(RestartStrategy::OneForOne)
@@ -413,7 +492,7 @@ fn create_demo_tree(stats: Arc<RwLock<WorkerStats>>, event_log: EventLog) -> Sup
             },
             RestartPolicy::Permanent,
         );
-    
+
     // API layer
     let api_cluster = SupervisorSpec::new("api-servers")
         .with_restart_strategy(RestartStrategy::OneForOne)
@@ -453,7 +532,7 @@ fn create_demo_tree(stats: Arc<RwLock<WorkerStats>>, event_log: EventLog) -> Sup
             },
             RestartPolicy::Permanent,
         );
-    
+
     // Background jobs
     let jobs = SupervisorSpec::new("background-jobs")
         .with_restart_strategy(RestartStrategy::OneForOne)
@@ -484,7 +563,7 @@ fn create_demo_tree(stats: Arc<RwLock<WorkerStats>>, event_log: EventLog) -> Sup
             },
             RestartPolicy::Temporary,
         );
-    
+
     // Root
     SupervisorSpec::new("production")
         .with_restart_strategy(RestartStrategy::OneForOne)
@@ -518,25 +597,25 @@ fn create_demo_tree(stats: Arc<RwLock<WorkerStats>>, event_log: EventLog) -> Sup
 #[tokio::main]
 async fn main() {
     let args: Vec<String> = std::env::args().collect();
-    
+
     if args.len() < 2 {
         eprintln!("Usage: {} <tree|logs>", args[0]);
         eprintln!("This binary is meant to be launched by the run_tmux_demo.sh script");
         std::process::exit(1);
     }
-    
+
     let mode = &args[1];
-    
+
     // Shared state
     let stats = Arc::new(RwLock::new(WorkerStats::new()));
     let event_log = EventLog::new(500);
-    
+
     // Start supervisor tree
     let tree_spec = create_demo_tree(stats.clone(), event_log.clone());
     let root = SupervisorHandle::start(tree_spec);
-    
+
     sleep(Duration::from_millis(1000)).await;
-    
+
     match mode.as_str() {
         "tree" => {
             // Render tree view

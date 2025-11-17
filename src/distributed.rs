@@ -1,5 +1,5 @@
 //! Distributed supervision via TCP/Unix sockets
-//! 
+//!
 //! Allows supervisors to run in separate processes (local) or on remote machines (network).
 //! Commands are serialized with bincode for minimal overhead.
 
@@ -28,7 +28,10 @@ pub enum RemoteCommand {
     /// Get list of all children
     WhichChildren,
     /// Terminate a specific child
-    TerminateChild { id: String },
+    TerminateChild {
+        /// ID of the child to terminate
+        id: String
+    },
     /// Get supervisor status
     Status,
 }
@@ -49,8 +52,11 @@ pub enum RemoteResponse {
 /// Information about a child process (simplified for serialization)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChildInfo {
+    /// Unique identifier for the child
     pub id: String,
+    /// Type of child (Worker or Supervisor)
     pub child_type: ChildType,
+    /// Restart policy for the child (None for supervisors)
     pub restart_policy: Option<RestartPolicy>,
 }
 
@@ -67,9 +73,13 @@ impl From<SupervisorChildInfo> for ChildInfo {
 /// Status information about a supervisor
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SupervisorStatus {
+    /// Name of the supervisor
     pub name: String,
+    /// Number of children currently running
     pub children_count: usize,
+    /// Restart strategy being used
     pub restart_strategy: String,
+    /// Uptime in seconds
     pub uptime_secs: u64,
 }
 
@@ -97,7 +107,10 @@ impl RemoteSupervisorHandle {
     }
 
     /// Send a command to the remote supervisor
-    pub async fn send_command(&self, cmd: RemoteCommand) -> Result<RemoteResponse, DistributedError> {
+    pub async fn send_command(
+        &self,
+        cmd: RemoteCommand,
+    ) -> Result<RemoteResponse, DistributedError> {
         match &self.address {
             SupervisorAddress::Tcp(addr) => {
                 let mut stream = TcpStream::connect(addr).await?;
@@ -129,7 +142,10 @@ impl RemoteSupervisorHandle {
 
     /// Terminate a child on the remote supervisor
     pub async fn terminate_child(&self, id: &str) -> Result<(), DistributedError> {
-        match self.send_command(RemoteCommand::TerminateChild { id: id.to_string() }).await? {
+        match self
+            .send_command(RemoteCommand::TerminateChild { id: id.to_string() })
+            .await?
+        {
             RemoteResponse::Ok => Ok(()),
             RemoteResponse::Error(e) => Err(DistributedError::RemoteError(e)),
             _ => Err(DistributedError::UnexpectedResponse),
@@ -160,12 +176,17 @@ impl<W: Worker> SupervisorServer<W> {
     }
 
     /// Start listening on a Unix socket
-    pub async fn listen_unix(self, path: impl AsRef<std::path::Path>) -> Result<(), DistributedError> {
+    pub async fn listen_unix(
+        self,
+        path: impl AsRef<std::path::Path>,
+    ) -> Result<(), DistributedError> {
         let path = path.as_ref();
         let _ = std::fs::remove_file(path); // Clean up old socket
 
         let listener = UnixListener::bind(path)?;
-        println!("[Server] Listening on Unix socket: {}", path.display());
+        slog::info!(slog_scope::logger(), "server listening on unix socket";
+            "path" => %path.display()
+        );
 
         loop {
             let (mut stream, _) = listener.accept().await?;
@@ -173,7 +194,9 @@ impl<W: Worker> SupervisorServer<W> {
 
             tokio::spawn(async move {
                 if let Err(e) = Self::handle_connection(&mut stream, handle).await {
-                    eprintln!("[Server] Connection error: {}", e);
+                    slog::error!(slog_scope::logger(), "connection error";
+                        "error" => %e
+                    );
                 }
             });
         }
@@ -182,16 +205,22 @@ impl<W: Worker> SupervisorServer<W> {
     /// Start listening on a TCP socket
     pub async fn listen_tcp(self, addr: impl AsRef<str>) -> Result<(), DistributedError> {
         let listener = TcpListener::bind(addr.as_ref()).await?;
-        println!("[Server] Listening on TCP: {}", addr.as_ref());
+        slog::info!(slog_scope::logger(), "server listening on tcp";
+            "address" => addr.as_ref()
+        );
 
         loop {
             let (mut stream, peer) = listener.accept().await?;
-            println!("[Server] Connection from: {:?}", peer);
+            slog::debug!(slog_scope::logger(), "new connection";
+                "peer" => ?peer
+            );
             let handle = Arc::clone(&self.handle);
 
             tokio::spawn(async move {
                 if let Err(e) = Self::handle_connection(&mut stream, handle).await {
-                    eprintln!("[Server] Connection error: {}", e);
+                    slog::error!(slog_scope::logger(), "Connection error";
+                        "error" => %e
+                    );
                 }
             });
         }
@@ -215,33 +244,34 @@ impl<W: Worker> SupervisorServer<W> {
         handle: &SupervisorHandle<W>,
     ) -> RemoteResponse {
         match command {
-            RemoteCommand::Shutdown => {
-                match handle.shutdown().await {
-                    Ok(()) => RemoteResponse::Ok,
-                    Err(e) => RemoteResponse::Error(e.to_string()),
+            RemoteCommand::Shutdown => match handle.shutdown().await {
+                Ok(()) => RemoteResponse::Ok,
+                Err(e) => RemoteResponse::Error(e.to_string()),
+            },
+            RemoteCommand::WhichChildren => match handle.which_children().await {
+                Ok(children) => {
+                    let children: Vec<ChildInfo> = children.into_iter().map(Into::into).collect();
+                    RemoteResponse::Children(children)
                 }
-            }
-            RemoteCommand::WhichChildren => {
-                match handle.which_children().await {
-                    Ok(children) => {
-                        let children: Vec<ChildInfo> = children.into_iter().map(Into::into).collect();
-                        RemoteResponse::Children(children)
-                    }
-                    Err(e) => RemoteResponse::Error(e.to_string()),
-                }
-            }
-            RemoteCommand::TerminateChild { id } => {
-                match handle.terminate_child(&id).await {
-                    Ok(()) => RemoteResponse::Ok,
-                    Err(e) => RemoteResponse::Error(e.to_string()),
-                }
-            }
+                Err(e) => RemoteResponse::Error(e.to_string()),
+            },
+            RemoteCommand::TerminateChild { id } => match handle.terminate_child(&id).await {
+                Ok(()) => RemoteResponse::Ok,
+                Err(e) => RemoteResponse::Error(e.to_string()),
+            },
             RemoteCommand::Status => {
+                let restart_strategy = handle
+                    .restart_strategy()
+                    .await
+                    .map(|s| format!("{:?}", s))
+                    .unwrap_or_else(|_| "Unknown".to_string());
+                let uptime_secs = handle.uptime().await.unwrap_or(0);
+
                 RemoteResponse::Status(SupervisorStatus {
                     name: handle.name().to_string(),
                     children_count: handle.which_children().await.map(|c| c.len()).unwrap_or(0),
-                    restart_strategy: "OneForOne".to_string(), // TODO: expose from handle
-                    uptime_secs: 0, // TODO: track uptime
+                    restart_strategy,
+                    uptime_secs,
                 })
             }
         }
@@ -256,11 +286,11 @@ where
 {
     let encoded = bincode::serialize(msg)?;
     let len = encoded.len() as u32;
-    
+
     stream.write_all(&len.to_be_bytes()).await?;
     stream.write_all(&encoded).await?;
     stream.flush().await?;
-    
+
     Ok(())
 }
 
@@ -273,14 +303,14 @@ where
     let mut len_bytes = [0u8; 4];
     stream.read_exact(&mut len_bytes).await?;
     let len = u32::from_be_bytes(len_bytes) as usize;
-    
+
     if len > 10_000_000 {
         return Err(DistributedError::MessageTooLarge(len));
     }
-    
+
     let mut buffer = vec![0u8; len];
     stream.read_exact(&mut buffer).await?;
-    
+
     let decoded = bincode::deserialize(&buffer)?;
     Ok(decoded)
 }
@@ -288,10 +318,15 @@ where
 /// Errors that can occur in distributed operations
 #[derive(Debug)]
 pub enum DistributedError {
+    /// I/O error occurred
     Io(std::io::Error),
+    /// Serialization/deserialization error
     Serialization(bincode::Error),
+    /// Error from remote supervisor
     RemoteError(String),
+    /// Received unexpected response type
     UnexpectedResponse,
+    /// Message size exceeds maximum allowed
     MessageTooLarge(usize),
 }
 
@@ -302,7 +337,9 @@ impl fmt::Display for DistributedError {
             DistributedError::Serialization(e) => write!(f, "Serialization error: {}", e),
             DistributedError::RemoteError(e) => write!(f, "Remote error: {}", e),
             DistributedError::UnexpectedResponse => write!(f, "Unexpected response from remote"),
-            DistributedError::MessageTooLarge(size) => write!(f, "Message too large: {} bytes", size),
+            DistributedError::MessageTooLarge(size) => {
+                write!(f, "Message too large: {} bytes", size)
+            }
         }
     }
 }

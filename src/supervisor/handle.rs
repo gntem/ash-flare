@@ -26,7 +26,9 @@ impl<W: Worker> SupervisorHandle<W> {
         let runtime_name = Arc::clone(&name_arc);
         tokio::spawn(async move {
             runtime.run().await;
-            println!("[{}] supervisor stopped", runtime_name);
+            slog::debug!(slog_scope::logger(), "supervisor stopped";
+                "name" => &*runtime_name
+            );
         });
 
         Self {
@@ -99,5 +101,37 @@ impl<W: Worker> SupervisorHandle<W> {
     /// Returns the supervisor's name.
     pub fn name(&self) -> &str {
         self.name.as_str()
+    }
+
+    /// Returns the supervisor's restart strategy.
+    pub async fn restart_strategy(
+        &self,
+    ) -> Result<crate::restart::RestartStrategy, SupervisorError> {
+        let (result_tx, result_rx) = oneshot::channel();
+
+        self.control_tx
+            .send(SupervisorCommand::GetRestartStrategy {
+                respond_to: result_tx,
+            })
+            .map_err(|_| SupervisorError::ShuttingDown(self.name().to_string()))?;
+
+        result_rx
+            .await
+            .map_err(|_| SupervisorError::ShuttingDown(self.name().to_string()))
+    }
+
+    /// Returns the supervisor's uptime in seconds.
+    pub async fn uptime(&self) -> Result<u64, SupervisorError> {
+        let (result_tx, result_rx) = oneshot::channel();
+
+        self.control_tx
+            .send(SupervisorCommand::GetUptime {
+                respond_to: result_tx,
+            })
+            .map_err(|_| SupervisorError::ShuttingDown(self.name().to_string()))?;
+
+        result_rx
+            .await
+            .map_err(|_| SupervisorError::ShuttingDown(self.name().to_string()))
     }
 }

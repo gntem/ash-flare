@@ -3,10 +3,9 @@
 [![Crates.io](https://img.shields.io/crates/v/ash-flare.svg)](https://crates.io/crates/ash-flare)
 [![Documentation](https://docs.rs/ash-flare/badge.svg)](https://docs.rs/ash-flare)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Rust Version](https://img.shields.io/badge/rust-1.75%2B-blue.svg)](https://www.rust-lang.org)
 
-**Fault-tolerant supervision trees for Rust with distributed capabilities.**
-
-Build resilient systems that automatically recover from failures with supervisor trees, restart strategies, and distributed supervision.
+Fault-tolerant supervision trees for Rust with distributed capabilities inspired by Erlang/OTP. Build resilient systems that automatically recover from failures with supervisor trees, restart strategies, and distributed supervision.
 
 ## Features
 
@@ -17,6 +16,7 @@ Build resilient systems that automatically recover from failures with supervisor
 - **🌐 Distributed**: Run supervisors across processes or machines via TCP/Unix sockets
 - **🔌 Generic Workers**: Trait-based worker system for any async workload
 - **🛠️ Dynamic Management**: Add/remove children at runtime
+- **📝 Structured Logging**: Built-in support for `slog` structured logging
 
 ## Quick Start
 
@@ -242,6 +242,37 @@ impl Worker for MyWorker {
 }
 ```
 
+## Structured Logging
+
+Ash Flare uses `slog` for structured logging. To see logs, set up a global logger:
+
+```rust
+use slog::{Drain, Logger, o};
+use slog_async::Async;
+use slog_term::{FullFormat, TermDecorator};
+
+fn main() {
+    // Set up logger
+    let decorator = TermDecorator::new().build();
+    let drain = FullFormat::new(decorator).build().fuse();
+    let drain = Async::new(drain).build().fuse();
+    let logger = Logger::root(drain, o!());
+    
+    // Set as global logger
+    let _guard = slog_scope::set_global_logger(logger);
+    
+    // Your supervision tree code here...
+}
+```
+
+Logs include structured data for easy filtering:
+
+```text
+INFO server listening on tcp; address: "127.0.0.1:8080"
+DEBUG child terminated; supervisor: "root", child: "worker-1", reason: Normal
+ERROR restart intensity exceeded, shutting down; supervisor: "root"
+```
+
 ## Examples
 
 Check the `examples/` directory for more:
@@ -264,4 +295,5 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## Acknowledgments
 
 Inspired by Erlang/OTP's in some way.
+
 Some code generated with the help of AI tools.

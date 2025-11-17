@@ -3,10 +3,10 @@
 use ash_flare::Worker;
 use async_trait::async_trait;
 use rand::Rng;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
-use tokio::time::{sleep, Instant};
+use tokio::time::{Instant, sleep};
 
 #[derive(Debug)]
 pub struct DeviceError(pub String);
@@ -23,9 +23,9 @@ impl std::error::Error for DeviceError {}
 pub struct DeviceConfig {
     pub device_id: String,
     pub region: String,
-    pub failure_rate: f32,        // 0.0 to 1.0 probability of failure
-    pub check_interval_ms: u64,   // How often device checks in
-    pub max_uptime_secs: u64,     // Max time before simulated failure
+    pub failure_rate: f32,      // 0.0 to 1.0 probability of failure
+    pub check_interval_ms: u64, // How often device checks in
+    pub max_uptime_secs: u64,   // Max time before simulated failure
 }
 
 pub struct IoTDevice {

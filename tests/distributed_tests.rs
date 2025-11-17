@@ -3,7 +3,7 @@ use ash_flare::distributed::{
 };
 use ash_flare::{RestartPolicy, SupervisorHandle, SupervisorSpec, Worker};
 use async_trait::async_trait;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 struct TestWorker;
 
@@ -20,8 +20,11 @@ impl Worker for TestWorker {
 
 #[tokio::test]
 async fn test_remote_supervisor_tcp() {
-    let spec = SupervisorSpec::new("remote-test")
-        .with_worker("worker-1", || TestWorker, RestartPolicy::Permanent);
+    let spec = SupervisorSpec::new("remote-test").with_worker(
+        "worker-1",
+        || TestWorker,
+        RestartPolicy::Permanent,
+    );
 
     let handle = SupervisorHandle::start(spec);
     let server = SupervisorServer::new(handle);
@@ -145,8 +148,11 @@ async fn test_remote_responses() {
 
 #[tokio::test]
 async fn test_remote_handle_connection() {
-    let spec = SupervisorSpec::new("connection-test")
-        .with_worker("worker-1", || TestWorker, RestartPolicy::Permanent);
+    let spec = SupervisorSpec::new("connection-test").with_worker(
+        "worker-1",
+        || TestWorker,
+        RestartPolicy::Permanent,
+    );
 
     let handle = SupervisorHandle::start(spec);
     let server = SupervisorServer::new(handle);

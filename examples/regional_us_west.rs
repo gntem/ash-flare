@@ -100,7 +100,7 @@ async fn main() {
 
     // Dynamically add a device after startup
     sleep(Duration::from_secs(3)).await;
-    
+
     // Query children instead
     sleep(Duration::from_secs(25)).await;
 

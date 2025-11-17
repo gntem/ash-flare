@@ -9,4 +9,3 @@ mod spec;
 pub use error::SupervisorError;
 pub use handle::SupervisorHandle;
 pub use spec::SupervisorSpec;
-
