@@ -4,8 +4,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
+use bincode::{Decode, Encode};
+
 /// Restart strategy for supervisor children
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub enum RestartStrategy {
     /// Restart only the failed child (`:one_for_one`)
     OneForOne,
@@ -22,7 +24,7 @@ impl Default for RestartStrategy {
 }
 
 /// When to restart a child
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub enum RestartPolicy {
     /// Always restart when child terminates (`:permanent`)
     Permanent,

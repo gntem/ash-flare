@@ -3,8 +3,10 @@
 use crate::restart::RestartPolicy;
 use serde::{Deserialize, Serialize};
 
+use bincode::{Decode, Encode};
+
 /// Result of a worker's execution
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub enum ChildExitReason {
     /// Normal termination
     Normal,
@@ -29,7 +31,7 @@ pub struct ChildInfo {
 }
 
 /// Type of child in supervision tree
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub enum ChildType {
     /// A worker process
     Worker,

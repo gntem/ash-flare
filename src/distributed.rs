@@ -3,6 +3,7 @@
 //! Allows supervisors to run in separate processes (local) or on remote machines (network).
 //! Commands are serialized with bincode for minimal overhead.
 
+use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::sync::Arc;
@@ -12,7 +13,7 @@ use tokio::net::{TcpListener, TcpStream, UnixListener, UnixStream};
 use crate::{ChildInfo as SupervisorChildInfo, ChildType, RestartPolicy, SupervisorHandle, Worker};
 
 /// Remote supervisor address
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub enum SupervisorAddress {
     /// TCP socket address (host:port)
     Tcp(String),
@@ -21,7 +22,7 @@ pub enum SupervisorAddress {
 }
 
 /// Commands that can be sent to a remote supervisor
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub enum RemoteCommand {
     /// Request supervisor to shut down gracefully
     Shutdown,
@@ -37,7 +38,7 @@ pub enum RemoteCommand {
 }
 
 /// Responses from remote supervisor
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub enum RemoteResponse {
     /// Command executed successfully
     Ok,
@@ -50,7 +51,7 @@ pub enum RemoteResponse {
 }
 
 /// Information about a child process (simplified for serialization)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct ChildInfo {
     /// Unique identifier for the child
     pub id: String,
@@ -71,7 +72,7 @@ impl From<SupervisorChildInfo> for ChildInfo {
 }
 
 /// Status information about a supervisor
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct SupervisorStatus {
     /// Name of the supervisor
     pub name: String,
@@ -282,9 +283,9 @@ impl<W: Worker> SupervisorServer<W> {
 async fn send_message<S, T>(stream: &mut S, msg: &T) -> Result<(), DistributedError>
 where
     S: AsyncWriteExt + Unpin,
-    T: Serialize,
+    T: Serialize + Encode,
 {
-    let encoded = bincode::serialize(msg)?;
+    let encoded = bincode::encode_to_vec(msg, bincode::config::standard())?;
     let len = encoded.len() as u32;
 
     stream.write_all(&len.to_be_bytes()).await?;
@@ -298,7 +299,7 @@ where
 async fn receive_message<S, T>(stream: &mut S) -> Result<T, DistributedError>
 where
     S: AsyncReadExt + Unpin,
-    T: for<'de> Deserialize<'de>,
+    T: for<'de> Deserialize<'de> + bincode::Decode<()>,
 {
     let mut len_bytes = [0u8; 4];
     stream.read_exact(&mut len_bytes).await?;
@@ -311,7 +312,7 @@ where
     let mut buffer = vec![0u8; len];
     stream.read_exact(&mut buffer).await?;
 
-    let decoded = bincode::deserialize(&buffer)?;
+    let (decoded, _) = bincode::decode_from_slice(&buffer, bincode::config::standard())?;
     Ok(decoded)
 }
 
@@ -320,8 +321,10 @@ where
 pub enum DistributedError {
     /// I/O error occurred
     Io(std::io::Error),
-    /// Serialization/deserialization error
-    Serialization(bincode::Error),
+    /// Serialization error
+    Encode(bincode::error::EncodeError),
+    /// Deserialization error
+    Decode(bincode::error::DecodeError),
     /// Error from remote supervisor
     RemoteError(String),
     /// Received unexpected response type
@@ -334,7 +337,8 @@ impl fmt::Display for DistributedError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             DistributedError::Io(e) => write!(f, "IO error: {}", e),
-            DistributedError::Serialization(e) => write!(f, "Serialization error: {}", e),
+            DistributedError::Encode(e) => write!(f, "Encode error: {}", e),
+            DistributedError::Decode(e) => write!(f, "Decode error: {}", e),
             DistributedError::RemoteError(e) => write!(f, "Remote error: {}", e),
             DistributedError::UnexpectedResponse => write!(f, "Unexpected response from remote"),
             DistributedError::MessageTooLarge(size) => {
@@ -352,8 +356,14 @@ impl From<std::io::Error> for DistributedError {
     }
 }
 
-impl From<bincode::Error> for DistributedError {
-    fn from(e: bincode::Error) -> Self {
-        DistributedError::Serialization(e)
+impl From<bincode::error::EncodeError> for DistributedError {
+    fn from(e: bincode::error::EncodeError) -> Self {
+        DistributedError::Encode(e)
+    }
+}
+
+impl From<bincode::error::DecodeError> for DistributedError {
+    fn from(e: bincode::error::DecodeError) -> Self {
+        DistributedError::Decode(e)
     }
 }
