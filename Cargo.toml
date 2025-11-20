@@ -58,3 +58,27 @@ path = "examples/interactive_demo.rs"
 [[example]]
 name = "tmux_demo"
 path = "examples/tmux_demo.rs"
+
+[[example]]
+name = "worker_queue"
+path = "examples/worker_queue.rs"
+
+[[example]]
+name = "process_monitor"
+path = "examples/process_monitor.rs"
+
+[[example]]
+name = "telemetry_processor"
+path = "examples/telemetry_processor.rs"
+
+[[example]]
+name = "transcode_farm"
+path = "examples/transcode_farm.rs"
+
+[[example]]
+name = "notification_fanout"
+path = "examples/notification_fanout.rs"
+
+[[example]]
+name = "shared_resource"
+path = "examples/shared_resource.rs"
