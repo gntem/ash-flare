@@ -78,3 +78,7 @@ path = "examples/transcode_farm.rs"
 [[example]]
 name = "notification_fanout"
 path = "examples/notification_fanout.rs"
+
+[[example]]
+name = "shared_resource"
+path = "examples/shared_resource.rs"
