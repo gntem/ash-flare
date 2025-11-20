@@ -30,6 +30,38 @@ macro_rules! impl_worker {
     };
 }
 
+/// Implement the Worker trait with access to self for stateful workers
+///
+/// # Examples
+///
+/// ```ignore
+/// use ash_flare::impl_worker_stateful;
+///
+/// struct MyWorker {
+///     counter: usize,
+/// }
+///
+/// impl_worker_stateful! {
+///     MyWorker, std::io::Error => |self| {
+///         self.counter += 1;
+///         println!("Counter: {}", self.counter);
+///         tokio::time::sleep(Duration::from_secs(1)).await;
+///         Ok(())
+///     }
+/// }
+/// ```
+#[macro_export]
+macro_rules! impl_worker_stateful {
+    ($worker:ty, $error:ty => |$self:ident| $run_body:block) => {
+        #[async_trait::async_trait]
+        impl $crate::Worker for $worker {
+            type Error = $error;
+
+            async fn run(&mut $self) -> Result<(), Self::Error> $run_body
+        }
+    };
+}
+
 /// Build a supervision tree with a declarative syntax
 ///
 /// # Examples
