@@ -66,3 +66,11 @@ path = "examples/worker_queue.rs"
 [[example]]
 name = "process_monitor"
 path = "examples/process_monitor.rs"
+
+[[example]]
+name = "telemetry_processor"
+path = "examples/telemetry_processor.rs"
+
+[[example]]
+name = "transcode_farm"
+path = "examples/transcode_farm.rs"
