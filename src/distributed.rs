@@ -31,7 +31,7 @@ pub enum RemoteCommand {
     /// Terminate a specific child
     TerminateChild {
         /// ID of the child to terminate
-        id: String
+        id: String,
     },
     /// Get supervisor status
     Status,

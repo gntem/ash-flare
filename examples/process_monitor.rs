@@ -89,9 +89,9 @@ impl ProcessMonitor {
     async fn stop_process(&mut self) -> Result<(), ProcessError> {
         if let Some(mut child) = self.child_process.take() {
             println!("[{}] Stopping process...", self.process_name);
-            
+
             let _ = child.kill().await;
-            
+
             match child.wait().await {
                 Ok(status) => {
                     println!(
@@ -156,9 +156,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_restart_strategy(RestartStrategy::OneForOne)
         .with_worker(
             "web-server-monitor",
-            || {
-                ProcessMonitor::new("web-server", "sleep", vec!["3".to_string()], 2)
-            },
+            || ProcessMonitor::new("web-server", "sleep", vec!["3".to_string()], 2),
             RestartPolicy::Permanent,
         )
         .with_worker(
@@ -176,7 +174,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Started supervisor with 3 process monitors\n");
     println!("Watch as monitors detect failures and supervisor restarts them...\n");
-    
+
     sleep(Duration::from_secs(18)).await;
 
     println!("\n=== Shutting down supervisor ===");

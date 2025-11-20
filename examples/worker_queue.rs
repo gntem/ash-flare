@@ -6,7 +6,9 @@
 //! - Worker restart on failure
 //! - Graceful shutdown when queue is empty
 
-use ash_flare::{RestartIntensity, RestartPolicy, RestartStrategy, SupervisorHandle, SupervisorSpec, Worker};
+use ash_flare::{
+    RestartIntensity, RestartPolicy, RestartStrategy, SupervisorHandle, SupervisorSpec, Worker,
+};
 use async_trait::async_trait;
 use std::sync::Arc;
 use std::time::Duration;
@@ -59,10 +61,7 @@ impl QueueWorker {
             )));
         }
 
-        println!(
-            "[Worker {}] Task #{} completed ✓",
-            self.worker_id, task.id
-        );
+        println!("[Worker {}] Task #{} completed ✓", self.worker_id, task.id);
         Ok(())
     }
 }
@@ -175,10 +174,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let supervisor = SupervisorHandle::start(supervisor_spec);
-    println!(
-        "Started supervisor with {} workers\n",
-        num_workers
-    );
+    println!("Started supervisor with {} workers\n", num_workers);
 
     // Enqueue all tasks
     println!("Enqueueing {} tasks...\n", tasks.len());

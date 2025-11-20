@@ -97,10 +97,10 @@ impl Worker for TelemetryIngester {
 
         loop {
             tick.tick().await;
-            
+
             let device_id = (counter % 5) + 1;
             self.simulate_device_data(device_id).await?;
-            
+
             counter += 1;
         }
     }
@@ -139,7 +139,7 @@ impl TelemetryProcessor {
         }
 
         println!("\n=== Telemetry Report ({}s window) ===", self.window_secs);
-        
+
         for (device_id, readings) in self.buffer.iter() {
             if readings.is_empty() {
                 continue;
@@ -147,7 +147,7 @@ impl TelemetryProcessor {
 
             let sum: f64 = readings.iter().sum();
             let avg = sum / readings.len() as f64;
-            
+
             println!(
                 "Device {}: avg={:.2} (samples={})",
                 device_id,
@@ -155,7 +155,7 @@ impl TelemetryProcessor {
                 readings.len()
             );
         }
-        
+
         println!();
         self.buffer.clear();
     }
@@ -172,13 +172,13 @@ impl Worker for TelemetryProcessor {
 
     async fn run(&mut self) -> Result<(), Self::Error> {
         let mut output_timer = interval(Duration::from_secs(self.window_secs));
-        
+
         loop {
             tokio::select! {
                 _ = output_timer.tick() => {
                     self.compute_and_output_averages();
                 }
-                
+
                 data = async {
                     let mut rx = self.rx.lock().await;
                     rx.recv().await

@@ -21,8 +21,15 @@ impl std::error::Error for NotificationError {}
 
 #[derive(Debug, Clone)]
 enum NotificationType {
-    Topic { topic: String, message: String },
-    Campaign { campaign_id: String, message: String, targets: Vec<String> },
+    Topic {
+        topic: String,
+        message: String,
+    },
+    Campaign {
+        campaign_id: String,
+        message: String,
+        targets: Vec<String>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -74,7 +81,11 @@ impl Worker for NotificationPublisher {
                 notification_type: NotificationType::Campaign {
                     campaign_id: "summer-sale".to_string(),
                     message: "Summer Sale: 50% off everything!".to_string(),
-                    targets: vec!["user123".to_string(), "user456".to_string(), "user789".to_string()],
+                    targets: vec![
+                        "user123".to_string(),
+                        "user456".to_string(),
+                        "user789".to_string(),
+                    ],
                 },
             },
             Notification {
@@ -125,8 +136,18 @@ struct FanoutWorker {
 impl FanoutWorker {
     fn new(rx: Arc<tokio::sync::Mutex<mpsc::Receiver<Notification>>>) -> Self {
         let mut topic_subscribers = HashMap::new();
-        topic_subscribers.insert("news".to_string(), vec!["user123".to_string(), "user456".to_string(), "user789".to_string()]);
-        topic_subscribers.insert("alerts".to_string(), vec!["user123".to_string(), "user999".to_string()]);
+        topic_subscribers.insert(
+            "news".to_string(),
+            vec![
+                "user123".to_string(),
+                "user456".to_string(),
+                "user789".to_string(),
+            ],
+        );
+        topic_subscribers.insert(
+            "alerts".to_string(),
+            vec!["user123".to_string(), "user999".to_string()],
+        );
 
         Self {
             rx,
@@ -136,7 +157,11 @@ impl FanoutWorker {
 
     async fn fanout_topic(&self, topic: &str, message: &str) -> Result<(), NotificationError> {
         if let Some(subscribers) = self.topic_subscribers.get(topic) {
-            println!("  [Fanout] Topic '{}' → {} subscribers", topic, subscribers.len());
+            println!(
+                "  [Fanout] Topic '{}' → {} subscribers",
+                topic,
+                subscribers.len()
+            );
             for subscriber in subscribers {
                 sleep(Duration::from_millis(100)).await;
                 println!("    ✓ Delivered to {}: {}", subscriber, message);
@@ -147,16 +172,25 @@ impl FanoutWorker {
         Ok(())
     }
 
-    async fn fanout_campaign(&self, campaign_id: &str, message: &str, targets: &[String]) -> Result<(), NotificationError> {
-        println!("  [Fanout] Campaign '{}' → {} targets", campaign_id, targets.len());
+    async fn fanout_campaign(
+        &self,
+        campaign_id: &str,
+        message: &str,
+        targets: &[String],
+    ) -> Result<(), NotificationError> {
+        println!(
+            "  [Fanout] Campaign '{}' → {} targets",
+            campaign_id,
+            targets.len()
+        );
         for target in targets {
             sleep(Duration::from_millis(100)).await;
-            
+
             if target == "user999" && campaign_id == "new-feature" {
                 println!("    ✗ Failed to deliver to {}: user offline", target);
                 continue;
             }
-            
+
             println!("    ✓ Delivered to {}: {}", target, message);
         }
         Ok(())
@@ -180,16 +214,21 @@ impl Worker for FanoutWorker {
             };
 
             match notif {
-                Some(notification) => {
-                    match notification.notification_type {
-                        NotificationType::Topic { ref topic, ref message } => {
-                            self.fanout_topic(topic, message).await?;
-                        }
-                        NotificationType::Campaign { ref campaign_id, ref message, ref targets } => {
-                            self.fanout_campaign(campaign_id, message, targets).await?;
-                        }
+                Some(notification) => match notification.notification_type {
+                    NotificationType::Topic {
+                        ref topic,
+                        ref message,
+                    } => {
+                        self.fanout_topic(topic, message).await?;
                     }
-                }
+                    NotificationType::Campaign {
+                        ref campaign_id,
+                        ref message,
+                        ref targets,
+                    } => {
+                        self.fanout_campaign(campaign_id, message, targets).await?;
+                    }
+                },
                 None => {
                     println!("[Fanout] Channel closed, shutting down");
                     return Ok(());

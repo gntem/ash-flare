@@ -116,8 +116,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rx = Arc::new(tokio::sync::Mutex::new(rx));
 
     let num_workers = 4;
-    let mut spec = SupervisorSpec::new("transcode-farm")
-        .with_restart_strategy(RestartStrategy::OneForOne);
+    let mut spec =
+        SupervisorSpec::new("transcode-farm").with_restart_strategy(RestartStrategy::OneForOne);
 
     for worker_id in 0..num_workers {
         let rx_clone = Arc::clone(&rx);
@@ -132,14 +132,46 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Started farm with {} workers\n", num_workers);
 
     let jobs = vec![
-        MediaJob { id: 1, filename: "video1.mp4".to_string(), format: "720p".to_string() },
-        MediaJob { id: 2, filename: "video2.mov".to_string(), format: "1080p".to_string() },
-        MediaJob { id: 3, filename: "video3.avi".to_string(), format: "480p".to_string() },
-        MediaJob { id: 4, filename: "video4.mkv".to_string(), format: "720p".to_string() },
-        MediaJob { id: 5, filename: "video5.mp4".to_string(), format: "1080p".to_string() },
-        MediaJob { id: 6, filename: "video6.mov".to_string(), format: "720p".to_string() },
-        MediaJob { id: 7, filename: "video7.mp4".to_string(), format: "480p".to_string() },
-        MediaJob { id: 8, filename: "video8.avi".to_string(), format: "1080p".to_string() },
+        MediaJob {
+            id: 1,
+            filename: "video1.mp4".to_string(),
+            format: "720p".to_string(),
+        },
+        MediaJob {
+            id: 2,
+            filename: "video2.mov".to_string(),
+            format: "1080p".to_string(),
+        },
+        MediaJob {
+            id: 3,
+            filename: "video3.avi".to_string(),
+            format: "480p".to_string(),
+        },
+        MediaJob {
+            id: 4,
+            filename: "video4.mkv".to_string(),
+            format: "720p".to_string(),
+        },
+        MediaJob {
+            id: 5,
+            filename: "video5.mp4".to_string(),
+            format: "1080p".to_string(),
+        },
+        MediaJob {
+            id: 6,
+            filename: "video6.mov".to_string(),
+            format: "720p".to_string(),
+        },
+        MediaJob {
+            id: 7,
+            filename: "video7.mp4".to_string(),
+            format: "480p".to_string(),
+        },
+        MediaJob {
+            id: 8,
+            filename: "video8.avi".to_string(),
+            format: "1080p".to_string(),
+        },
     ];
 
     println!("Submitting {} jobs...\n", jobs.len());

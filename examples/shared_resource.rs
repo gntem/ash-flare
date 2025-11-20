@@ -36,7 +36,8 @@ impl SharedResource {
 
     fn access(&mut self, worker_id: usize, operation: &str) -> usize {
         self.counter += 1;
-        self.data.push(format!("Worker {} - {}", worker_id, operation));
+        self.data
+            .push(format!("Worker {} - {}", worker_id, operation));
         println!(
             "  [Resource '{}'] Access #{} by Worker {} - {}",
             self.name, self.counter, worker_id, operation
@@ -73,9 +74,12 @@ impl ResourceWorker {
 
     async fn perform_operation(&self, op_num: usize) -> Result<(), WorkerError> {
         let operation = &self.operations[op_num % self.operations.len()];
-        
-        println!("[Worker {}] Requesting access for: {}", self.worker_id, operation);
-        
+
+        println!(
+            "[Worker {}] Requesting access for: {}",
+            self.worker_id, operation
+        );
+
         let mut resource = self.resource.lock().await;
         let access_count = resource.access(self.worker_id, operation);
         drop(resource);
@@ -96,8 +100,10 @@ impl ResourceWorker {
             )));
         }
 
-        println!("[Worker {}] ✓ Completed: {} (total accesses: {})", 
-                 self.worker_id, operation, access_count);
+        println!(
+            "[Worker {}] ✓ Completed: {} (total accesses: {})",
+            self.worker_id, operation, access_count
+        );
         Ok(())
     }
 }
@@ -116,7 +122,7 @@ impl Worker for ResourceWorker {
             self.perform_operation(i).await?;
             sleep(Duration::from_millis(400)).await;
         }
-        
+
         println!("[Worker {}] All operations complete", self.worker_id);
         Ok(())
     }
