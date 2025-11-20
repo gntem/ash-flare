@@ -58,3 +58,11 @@ path = "examples/interactive_demo.rs"
 [[example]]
 name = "tmux_demo"
 path = "examples/tmux_demo.rs"
+
+[[example]]
+name = "worker_queue"
+path = "examples/worker_queue.rs"
+
+[[example]]
+name = "process_monitor"
+path = "examples/process_monitor.rs"

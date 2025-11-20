@@ -22,10 +22,8 @@ Fault-tolerant supervision trees for Rust with distributed capabilities inspired
 
 Add to your `Cargo.toml`:
 
-```toml
-[dependencies]
-ash-flare = "1.0.0"
-tokio = { version = "1", features = ["full"] }
+```bash
+cargo add ash-flare
 ```
 
 ## Basic Example
