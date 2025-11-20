@@ -82,3 +82,7 @@ path = "examples/notification_fanout.rs"
 [[example]]
 name = "shared_resource"
 path = "examples/shared_resource.rs"
+
+[[example]]
+name = "dynamic_workers"
+path = "examples/dynamic_workers.rs"
