@@ -2,34 +2,48 @@
 //!
 //! This example demonstrates running a supervisor in a detached mode
 //! where it can be controlled via Unix socket commands.
+//!
+//! Note: This example requires Unix sockets and will not compile on Windows.
 
+#[cfg(unix)]
 use ash_flare::distributed::{RemoteSupervisorHandle, SupervisorAddress, SupervisorServer};
+#[cfg(unix)]
 use ash_flare::{RestartPolicy, RestartStrategy, SupervisorHandle, SupervisorSpec, Worker};
+
+#[cfg(unix)]
 use async_trait::async_trait;
+#[cfg(unix)]
 use std::time::Duration;
+#[cfg(unix)]
 use tokio::time::sleep;
 
+#[cfg(unix)]
 #[derive(Debug)]
 struct WorkerError(String);
 
+#[cfg(unix)]
 impl std::fmt::Display for WorkerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
+#[cfg(unix)]
 impl std::error::Error for WorkerError {}
 
+#[cfg(unix)]
 struct Counter {
     name: String,
 }
 
+#[cfg(unix)]
 impl Counter {
     fn new(name: impl Into<String>) -> Self {
         Self { name: name.into() }
     }
 }
 
+#[cfg(unix)]
 #[async_trait]
 impl Worker for Counter {
     type Error = WorkerError;
@@ -50,6 +64,7 @@ impl Worker for Counter {
 }
 
 /// Runs the supervisor server in this process
+#[cfg(unix)]
 async fn run_supervisor_server(socket_path: String) {
     let spec = SupervisorSpec::new("remote_supervisor")
         .with_restart_strategy(RestartStrategy::OneForOne)
@@ -80,6 +95,7 @@ async fn run_supervisor_server(socket_path: String) {
 }
 
 /// Runs the client that controls the remote supervisor
+#[cfg(unix)]
 async fn run_client(socket_path: String) {
     sleep(Duration::from_secs(1)).await; // Wait for server to start
 
@@ -145,6 +161,7 @@ async fn run_client(socket_path: String) {
 }
 
 #[tokio::main]
+#[cfg(unix)]
 async fn main() {
     let socket_path = "/tmp/ash-flare-supervisor.sock";
 
@@ -165,4 +182,11 @@ async fn main() {
 
         sleep(Duration::from_secs(1)).await;
     }
+}
+
+#[cfg(not(unix))]
+fn main() {
+    eprintln!("This example requires Unix sockets and is not supported on Windows.");
+    eprintln!("Please run this example on Linux or macOS.");
+    std::process::exit(1);
 }

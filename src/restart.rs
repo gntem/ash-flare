@@ -49,12 +49,28 @@ pub struct RestartIntensity {
     pub within_seconds: u64,
 }
 
+impl RestartIntensity {
+    /// Creates a new RestartIntensity with the specified limits.
+    ///
+    /// # Examples
+    /// ```
+    /// use ash_flare::RestartIntensity;
+    /// let intensity = RestartIntensity::new(5, 10);
+    /// assert_eq!(intensity.max_restarts, 5);
+    /// assert_eq!(intensity.within_seconds, 10);
+    /// ```
+    #[inline]
+    pub const fn new(max_restarts: usize, within_seconds: u64) -> Self {
+        Self {
+            max_restarts,
+            within_seconds,
+        }
+    }
+}
+
 impl Default for RestartIntensity {
     fn default() -> Self {
-        Self {
-            max_restarts: 3,
-            within_seconds: 5,
-        }
+        Self::new(3, 5)
     }
 }
 
@@ -69,7 +85,8 @@ impl RestartTracker {
     pub(crate) fn new(intensity: RestartIntensity) -> Self {
         Self {
             intensity,
-            restart_times: VecDeque::new(),
+            // Pre-allocate with max_restarts + 1 to avoid reallocations
+            restart_times: VecDeque::with_capacity(intensity.max_restarts + 1),
         }
     }
 

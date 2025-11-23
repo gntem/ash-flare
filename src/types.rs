@@ -45,7 +45,11 @@ pub enum ChildType {
 ///
 /// Provides a process-local, concurrency-safe storage for workers to share state.
 /// The store is backed by `DashMap` for lock-free concurrent access.
-#[derive(Clone)]
+///
+/// # Performance
+/// - Uses `DashMap` for lock-free concurrent operations
+/// - Cloning is cheap (only clones the `Arc`, not the data)
+#[derive(Clone, Debug)]
 pub struct WorkerContext {
     store: Arc<DashMap<String, serde_json::Value>>,
 }
@@ -61,11 +65,41 @@ impl WorkerContext {
     /// Gets a value from the store by key.
     ///
     /// Returns `None` if the key doesn't exist.
+    ///
+    /// Note: This method clones the value. For read-heavy workloads,
+    /// consider caching values or using primitives that are cheap to clone.
+    #[inline]
     pub fn get(&self, key: &str) -> Option<serde_json::Value> {
         self.store.get(key).map(|entry| entry.value().clone())
     }
 
+    /// Gets a value and applies a function to it without cloning.
+    ///
+    /// This is more efficient than `get()` when you only need to inspect the value.
+    ///
+    /// # Examples
+    /// ```
+    /// # use ash_flare::WorkerContext;
+    /// let ctx = WorkerContext::new();
+    /// ctx.set("count", serde_json::json!(42));
+    /// let is_positive = ctx.with_value("count", |v| {
+    ///     v.and_then(|val| val.as_i64()).map(|n| n > 0).unwrap_or(false)
+    /// });
+    /// assert!(is_positive);
+    /// ```
+    #[inline]
+    pub fn with_value<F, R>(&self, key: &str, f: F) -> R
+    where
+        F: FnOnce(Option<&serde_json::Value>) -> R,
+    {
+        match self.store.get(key) {
+            Some(entry) => f(Some(entry.value())),
+            None => f(None),
+        }
+    }
+
     /// Sets a value in the store.
+    #[inline]
     pub fn set(&self, key: impl Into<String>, value: serde_json::Value) {
         self.store.insert(key.into(), value);
     }
@@ -73,8 +107,27 @@ impl WorkerContext {
     /// Deletes a key from the store.
     ///
     /// Returns the previous value if it existed.
+    #[inline]
     pub fn delete(&self, key: &str) -> Option<serde_json::Value> {
         self.store.remove(key).map(|(_, v)| v)
+    }
+
+    /// Returns the number of key-value pairs in the store.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.store.len()
+    }
+
+    /// Returns `true` if the store contains no key-value pairs.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.store.is_empty()
+    }
+
+    /// Checks if a key exists in the store without retrieving the value.
+    #[inline]
+    pub fn contains_key(&self, key: &str) -> bool {
+        self.store.contains_key(key)
     }
 
     /// Updates a value in the store using a function.

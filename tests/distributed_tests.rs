@@ -57,6 +57,7 @@ async fn test_remote_supervisor_tcp() {
 }
 
 #[tokio::test]
+#[cfg(unix)]
 async fn test_remote_supervisor_unix() {
     let socket_path = "/tmp/ash-flare-test.sock";
     let _ = std::fs::remove_file(socket_path);
