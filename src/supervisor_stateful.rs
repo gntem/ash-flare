@@ -57,9 +57,9 @@
 //! # #[tokio::main]
 //! # async fn main() {
 //! let spec = StatefulSupervisorSpec::new("counter-supervisor")
-//!     .with_worker("counter-1", |ctx| CounterWorker { 
-//!         id: "counter-1".to_string(), 
-//!         context: ctx 
+//!     .with_worker("counter-1", |ctx| CounterWorker {
+//!         id: "counter-1".to_string(),
+//!         context: ctx
 //!     }, ash_flare::RestartPolicy::Permanent);
 //!
 //! let handle = StatefulSupervisorHandle::start(spec);
@@ -69,7 +69,7 @@
 //! ```
 
 use crate::restart::{RestartIntensity, RestartPolicy, RestartStrategy, RestartTracker};
-use crate::supervisor_common::{run_worker, WorkerTermination};
+use crate::supervisor_common::{WorkerTermination, run_worker};
 use crate::types::{ChildExitReason, ChildId, ChildInfo, ChildType, WorkerContext};
 use crate::worker::Worker;
 use std::fmt;
@@ -352,16 +352,32 @@ impl fmt::Display for StatefulSupervisorError {
                 write!(f, "stateful supervisor '{}' has no children", name)
             }
             StatefulSupervisorError::AllChildrenFailed(name) => {
-                write!(f, "all children failed for stateful supervisor '{}' - restart intensity limit exceeded", name)
+                write!(
+                    f,
+                    "all children failed for stateful supervisor '{}' - restart intensity limit exceeded",
+                    name
+                )
             }
             StatefulSupervisorError::ShuttingDown(name) => {
-                write!(f, "stateful supervisor '{}' is shutting down - operation not permitted", name)
+                write!(
+                    f,
+                    "stateful supervisor '{}' is shutting down - operation not permitted",
+                    name
+                )
             }
             StatefulSupervisorError::ChildAlreadyExists(id) => {
-                write!(f, "child with id '{}' already exists - use a unique identifier", id)
+                write!(
+                    f,
+                    "child with id '{}' already exists - use a unique identifier",
+                    id
+                )
             }
             StatefulSupervisorError::ChildNotFound(id) => {
-                write!(f, "child with id '{}' not found - it may have already terminated", id)
+                write!(
+                    f,
+                    "child with id '{}' not found - it may have already terminated",
+                    id
+                )
             }
         }
     }
@@ -503,8 +519,7 @@ impl<W: Worker> StatefulSupervisorRuntime<W> {
         }
 
         let id = spec.id.clone();
-        let worker =
-            StatefulWorkerProcess::spawn(spec, self.name.clone(), self.control_tx.clone());
+        let worker = StatefulWorkerProcess::spawn(spec, self.name.clone(), self.control_tx.clone());
 
         self.children.push(StatefulChild::Worker(worker));
         slog::debug!(slog_scope::logger(), "dynamically started child";
@@ -515,10 +530,7 @@ impl<W: Worker> StatefulSupervisorRuntime<W> {
         Ok(id)
     }
 
-    async fn handle_terminate_child(
-        &mut self,
-        id: &str,
-    ) -> Result<(), StatefulSupervisorError> {
+    async fn handle_terminate_child(&mut self, id: &str) -> Result<(), StatefulSupervisorError> {
         let position = self
             .children
             .iter()
@@ -742,8 +754,7 @@ impl<W: Worker> StatefulSupervisorHandle<W> {
     pub fn start(spec: StatefulSupervisorSpec<W>) -> Self {
         let (control_tx, control_rx) = mpsc::unbounded_channel();
         let name_arc = Arc::new(spec.name.clone());
-        let runtime =
-            StatefulSupervisorRuntime::new(spec, control_rx, control_tx.clone());
+        let runtime = StatefulSupervisorRuntime::new(spec, control_rx, control_tx.clone());
 
         let runtime_name = Arc::clone(&name_arc);
         tokio::spawn(async move {

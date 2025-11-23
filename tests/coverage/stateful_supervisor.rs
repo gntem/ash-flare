@@ -4,7 +4,7 @@ use ash_flare::{
     StatefulSupervisorSpec, WorkerContext,
 };
 use std::sync::Arc;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 #[tokio::test]
 async fn test_stateful_supervisor_basic() {

@@ -3,11 +3,11 @@
 //! This example demonstrates workers sharing state through a WorkerContext
 //! using a declarative macro syntax.
 
-use ash_flare::{stateful_supervision_tree, StatefulSupervisorHandle, Worker, WorkerContext};
+use ash_flare::{StatefulSupervisorHandle, Worker, WorkerContext, stateful_supervision_tree};
 use async_trait::async_trait;
 use slog::Drain;
 use std::sync::Arc;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 // Auction worker that can be either a bidder or monitor
 enum AuctionWorker {
@@ -34,10 +34,7 @@ impl Worker for AuctionWorker {
             AuctionWorker::Bidder { id, ctx } => {
                 // Bidder logic
                 for round in 1..=3 {
-                    let current_bid = ctx
-                        .get("highest_bid")
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(0);
+                    let current_bid = ctx.get("highest_bid").and_then(|v| v.as_u64()).unwrap_or(0);
 
                     let my_bid = current_bid + (*id as u64 * 10);
                     ctx.set("highest_bid", serde_json::json!(my_bid));
@@ -58,20 +55,11 @@ impl Worker for AuctionWorker {
                 for _ in 0..5 {
                     sleep(Duration::from_millis(80)).await;
 
-                    let highest_bid = ctx
-                        .get("highest_bid")
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(0);
+                    let highest_bid = ctx.get("highest_bid").and_then(|v| v.as_u64()).unwrap_or(0);
 
-                    let last_bidder = ctx
-                        .get("last_bidder")
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(0);
+                    let last_bidder = ctx.get("last_bidder").and_then(|v| v.as_u64()).unwrap_or(0);
 
-                    let total_bids = ctx
-                        .get("total_bids")
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(0);
+                    let total_bids = ctx.get("total_bids").and_then(|v| v.as_u64()).unwrap_or(0);
 
                     if total_bids > 0 {
                         println!(

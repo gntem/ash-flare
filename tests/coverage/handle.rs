@@ -1,6 +1,6 @@
 use super::workers::QuickWorker;
 use ash_flare::{RestartPolicy, RestartStrategy, SupervisorHandle, SupervisorSpec};
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 #[tokio::test]
 async fn test_supervisor_name() {
@@ -44,7 +44,7 @@ async fn test_supervisor_operations_after_shutdown() {
     let handle = SupervisorHandle::start(spec);
 
     handle.shutdown().await.unwrap();
-    
+
     // Give it time to shut down
     sleep(Duration::from_millis(50)).await;
 
@@ -107,7 +107,7 @@ async fn test_stateful_supervisor_operations_after_shutdown() {
     let handle = StatefulSupervisorHandle::start(spec);
 
     handle.shutdown().await.unwrap();
-    
+
     sleep(Duration::from_millis(50)).await;
 
     let result = handle.which_children().await;

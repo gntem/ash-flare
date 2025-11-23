@@ -60,9 +60,9 @@ async fn test_worker_context_len_empty() {
 #[tokio::test]
 async fn test_worker_context_contains_key() {
     let ctx = WorkerContext::new();
-    
+
     assert!(!ctx.contains_key("missing"));
-    
+
     ctx.set("exists", serde_json::json!("value"));
     assert!(ctx.contains_key("exists"));
     assert!(!ctx.contains_key("missing"));
