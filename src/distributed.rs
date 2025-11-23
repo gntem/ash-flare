@@ -128,12 +128,10 @@ impl RemoteSupervisorHandle {
                 receive_message(&mut stream).await
             }
             #[cfg(not(unix))]
-            SupervisorAddress::Unix(_) => {
-                Err(DistributedError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Unsupported,
-                    "Unix sockets are not supported on this platform",
-                )))
-            }
+            SupervisorAddress::Unix(_) => Err(DistributedError::Io(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "Unix sockets are not supported on this platform",
+            ))),
         }
     }
 

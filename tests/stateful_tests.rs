@@ -1,7 +1,9 @@
-use ash_flare::{RestartPolicy, StatefulSupervisorHandle, StatefulSupervisorSpec, Worker, WorkerContext};
+use ash_flare::{
+    RestartPolicy, StatefulSupervisorHandle, StatefulSupervisorSpec, Worker, WorkerContext,
+};
 use async_trait::async_trait;
 use std::sync::Arc;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 struct StatefulCounter {
     id: u32,
@@ -15,11 +17,7 @@ impl Worker for StatefulCounter {
     async fn run(&mut self) -> Result<(), Self::Error> {
         // Read counter from shared store
         let key = format!("counter-{}", self.id);
-        let current = self
-            .context
-            .get(&key)
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0);
+        let current = self.context.get(&key).and_then(|v| v.as_u64()).unwrap_or(0);
 
         // Increment and store back
         self.context
@@ -43,12 +41,18 @@ async fn test_stateful_workers_share_context() {
     let spec = StatefulSupervisorSpec::new("stateful-test")
         .with_worker(
             "counter-1",
-            |ctx| StatefulCounter { id: 1, context: ctx },
+            |ctx| StatefulCounter {
+                id: 1,
+                context: ctx,
+            },
             RestartPolicy::Temporary,
         )
         .with_worker(
             "counter-2",
-            |ctx| StatefulCounter { id: 2, context: ctx },
+            |ctx| StatefulCounter {
+                id: 2,
+                context: ctx,
+            },
             RestartPolicy::Temporary,
         );
 
@@ -78,10 +82,7 @@ async fn test_context_operations() {
 
     // Test set and get
     context.set("key1", serde_json::json!("value1"));
-    assert_eq!(
-        context.get("key1"),
-        Some(serde_json::json!("value1"))
-    );
+    assert_eq!(context.get("key1"), Some(serde_json::json!("value1")));
 
     // Test update
     context.update("counter", |v| {
@@ -127,11 +128,7 @@ async fn test_stateful_worker_restart_preserves_context() {
             });
 
             // Check if this is the first run
-            let count = self
-                .context
-                .get(&key)
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0);
+            let count = self.context.get(&key).and_then(|v| v.as_u64()).unwrap_or(0);
 
             if count == 1 {
                 // Fail on first run
@@ -149,7 +146,10 @@ async fn test_stateful_worker_restart_preserves_context() {
 
     let spec = StatefulSupervisorSpec::new("restart-test").with_worker(
         "failing-counter",
-        |ctx| FailingCounter { id: 1, context: ctx },
+        |ctx| FailingCounter {
+            id: 1,
+            context: ctx,
+        },
         RestartPolicy::Permanent,
     );
 

@@ -1,5 +1,7 @@
 // Minimal example to verify stateful supervisor compiles and works
-use ash_flare::{RestartPolicy, StatefulSupervisorHandle, StatefulSupervisorSpec, Worker, WorkerContext};
+use ash_flare::{
+    RestartPolicy, StatefulSupervisorHandle, StatefulSupervisorSpec, Worker, WorkerContext,
+};
 use async_trait::async_trait;
 use std::sync::Arc;
 

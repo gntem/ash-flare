@@ -139,7 +139,7 @@ fn test_remote_command_clone() {
         id: "child-1".to_string(),
     };
     let cloned = cmd.clone();
-    
+
     if let RemoteCommand::TerminateChild { id } = cloned {
         assert_eq!(id, "child-1");
     } else {
@@ -151,7 +151,7 @@ fn test_remote_command_clone() {
 fn test_remote_response_clone() {
     let resp = RemoteResponse::Error("test".to_string());
     let cloned = resp.clone();
-    
+
     if let RemoteResponse::Error(msg) = cloned {
         assert_eq!(msg, "test");
     } else {
@@ -167,7 +167,7 @@ fn test_child_info_clone() {
         restart_policy: Some(RestartPolicy::Temporary),
     };
     let cloned = info.clone();
-    
+
     assert_eq!(cloned.id, "worker");
     assert_eq!(cloned.child_type, ChildType::Worker);
     assert_eq!(cloned.restart_policy, Some(RestartPolicy::Temporary));
@@ -182,7 +182,7 @@ fn test_supervisor_status_clone() {
         uptime_secs: 100,
     };
     let cloned = status.clone();
-    
+
     assert_eq!(cloned.name, "sup");
     assert_eq!(cloned.children_count, 3);
 }
@@ -308,9 +308,9 @@ fn test_supervisor_address_serialize() {
     let addr = SupervisorAddress::Tcp("test:8080".to_string());
     let encoded = bincode::encode_to_vec(&addr, bincode::config::standard());
     assert!(encoded.is_ok());
-    
+
     if let Ok(bytes) = encoded {
-        let decoded: Result<(SupervisorAddress, _), _> = 
+        let decoded: Result<(SupervisorAddress, _), _> =
             bincode::decode_from_slice(&bytes, bincode::config::standard());
         assert!(decoded.is_ok());
     }
@@ -321,9 +321,9 @@ fn test_remote_command_serialize() {
     let cmd = RemoteCommand::WhichChildren;
     let encoded = bincode::encode_to_vec(&cmd, bincode::config::standard());
     assert!(encoded.is_ok());
-    
+
     if let Ok(bytes) = encoded {
-        let decoded: Result<(RemoteCommand, _), _> = 
+        let decoded: Result<(RemoteCommand, _), _> =
             bincode::decode_from_slice(&bytes, bincode::config::standard());
         assert!(decoded.is_ok());
     }
@@ -334,9 +334,9 @@ fn test_remote_response_serialize() {
     let resp = RemoteResponse::Ok;
     let encoded = bincode::encode_to_vec(&resp, bincode::config::standard());
     assert!(encoded.is_ok());
-    
+
     if let Ok(bytes) = encoded {
-        let decoded: Result<(RemoteResponse, _), _> = 
+        let decoded: Result<(RemoteResponse, _), _> =
             bincode::decode_from_slice(&bytes, bincode::config::standard());
         assert!(decoded.is_ok());
     }
@@ -351,9 +351,9 @@ fn test_child_info_serialize() {
     };
     let encoded = bincode::encode_to_vec(&info, bincode::config::standard());
     assert!(encoded.is_ok());
-    
+
     if let Ok(bytes) = encoded {
-        let decoded: Result<(ChildInfo, _), _> = 
+        let decoded: Result<(ChildInfo, _), _> =
             bincode::decode_from_slice(&bytes, bincode::config::standard());
         assert!(decoded.is_ok());
     }
@@ -369,9 +369,9 @@ fn test_supervisor_status_serialize() {
     };
     let encoded = bincode::encode_to_vec(&status, bincode::config::standard());
     assert!(encoded.is_ok());
-    
+
     if let Ok(bytes) = encoded {
-        let decoded: Result<(SupervisorStatus, _), _> = 
+        let decoded: Result<(SupervisorStatus, _), _> =
             bincode::decode_from_slice(&bytes, bincode::config::standard());
         assert!(decoded.is_ok());
     }

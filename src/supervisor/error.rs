@@ -24,16 +24,32 @@ impl fmt::Display for SupervisorError {
                 write!(f, "supervisor '{}' has no children", name)
             }
             SupervisorError::AllChildrenFailed(name) => {
-                write!(f, "all children failed for supervisor '{}' - restart intensity limit exceeded", name)
+                write!(
+                    f,
+                    "all children failed for supervisor '{}' - restart intensity limit exceeded",
+                    name
+                )
             }
             SupervisorError::ShuttingDown(name) => {
-                write!(f, "supervisor '{}' is shutting down - operation not permitted", name)
+                write!(
+                    f,
+                    "supervisor '{}' is shutting down - operation not permitted",
+                    name
+                )
             }
             SupervisorError::ChildAlreadyExists(id) => {
-                write!(f, "child with id '{}' already exists - use a unique identifier", id)
+                write!(
+                    f,
+                    "child with id '{}' already exists - use a unique identifier",
+                    id
+                )
             }
             SupervisorError::ChildNotFound(id) => {
-                write!(f, "child with id '{}' not found - it may have already terminated", id)
+                write!(
+                    f,
+                    "child with id '{}' not found - it may have already terminated",
+                    id
+                )
             }
         }
     }

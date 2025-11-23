@@ -11,8 +11,7 @@
 //! Total: 55 workers
 
 use ash_flare::{
-    RestartIntensity, RestartPolicy, RestartStrategy, SupervisorHandle,
-    SupervisorSpec, Worker,
+    RestartIntensity, RestartPolicy, RestartStrategy, SupervisorHandle, SupervisorSpec, Worker,
 };
 use async_trait::async_trait;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -193,7 +192,10 @@ impl Worker for WebSocketGateway {
     type Error = WorkerError;
 
     async fn initialize(&mut self) -> Result<(), Self::Error> {
-        println!("🔌 [WebSocket-Gateway] Managing {} connections", self.connections);
+        println!(
+            "🔌 [WebSocket-Gateway] Managing {} connections",
+            self.connections
+        );
         Ok(())
     }
 
@@ -412,7 +414,10 @@ impl Worker for PaymentProcessor {
     type Error = WorkerError;
 
     async fn initialize(&mut self) -> Result<(), Self::Error> {
-        println!("💳 [Payment-{}-{}] Connected to provider", self.id, self.provider);
+        println!(
+            "💳 [Payment-{}-{}] Connected to provider",
+            self.id, self.provider
+        );
         Ok(())
     }
 
@@ -525,7 +530,10 @@ impl Worker for PostgresConnector {
     type Error = WorkerError;
 
     async fn initialize(&mut self) -> Result<(), Self::Error> {
-        println!("🐘 [Postgres-{}] Connection pool ({} conns) ready", self.id, self.pool_size);
+        println!(
+            "🐘 [Postgres-{}] Connection pool ({} conns) ready",
+            self.id, self.pool_size
+        );
         Ok(())
     }
 
@@ -771,16 +779,16 @@ async fn print_tree(
     } else {
         "├── "
     };
-    
+
     println!("{}{}{}", prefix, connector, name);
 
     // Get children
     if let Ok(children) = handle.which_children().await {
         let child_count = children.len();
-        
+
         for (idx, child) in children.iter().enumerate() {
             let is_last_child = idx == child_count - 1;
-            
+
             // Calculate new prefix for children
             let new_prefix = if prefix.is_empty() {
                 String::new()
@@ -789,18 +797,26 @@ async fn print_tree(
             } else {
                 format!("{}│   ", prefix)
             };
-            
+
             match child.child_type {
                 ash_flare::ChildType::Worker => {
                     // Workers are leaf nodes
-                    let child_connector = if is_last_child { "└── " } else { "├── " };
+                    let child_connector = if is_last_child {
+                        "└── "
+                    } else {
+                        "├── "
+                    };
                     println!("{}{}💼 {}", new_prefix, child_connector, child.id);
                 }
                 ash_flare::ChildType::Supervisor => {
                     // Supervisors can have children - mark with 📦
-                    let child_connector = if is_last_child { "└── " } else { "├── " };
+                    let child_connector = if is_last_child {
+                        "└── "
+                    } else {
+                        "├── "
+                    };
                     print!("{}{}📦 ", new_prefix, child_connector);
-                    
+
                     // Note: We can't recursively query nested supervisors from the top-level handle
                     // in the current API, so we just mark them as supervisors
                     println!("{}", child.id);
@@ -822,7 +838,7 @@ async fn main() {
     println!("╚══════════════════════════════════════════════════════════════╝\n");
 
     // Supervision Tree Structure:
-    // 
+    //
     // microservices-platform (root)
     // ├── api-gateway
     // │   ├── http-gw-1
@@ -906,92 +922,281 @@ async fn main() {
     let api_gateway_spec = SupervisorSpec::new("api-gateway")
         .with_restart_strategy(RestartStrategy::OneForOne)
         .with_restart_intensity(RestartIntensity::new(5, 10))
-        .with_worker("http-gw-1", || ServiceWorker::HttpGateway(HttpGateway { id: 1 }), RestartPolicy::Permanent)
-        .with_worker("http-gw-2", || ServiceWorker::HttpGateway(HttpGateway { id: 2 }), RestartPolicy::Permanent)
-        .with_worker("http-gw-3", || ServiceWorker::HttpGateway(HttpGateway { id: 3 }), RestartPolicy::Permanent)
-        .with_worker("websocket-gw", || ServiceWorker::WebSocketGateway(WebSocketGateway { connections: 1000 }), RestartPolicy::Permanent)
-        .with_worker("graphql-gw", || ServiceWorker::GraphQLGateway(GraphQLGateway), RestartPolicy::Permanent);
+        .with_worker(
+            "http-gw-1",
+            || ServiceWorker::HttpGateway(HttpGateway { id: 1 }),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "http-gw-2",
+            || ServiceWorker::HttpGateway(HttpGateway { id: 2 }),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "http-gw-3",
+            || ServiceWorker::HttpGateway(HttpGateway { id: 3 }),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "websocket-gw",
+            || ServiceWorker::WebSocketGateway(WebSocketGateway { connections: 1000 }),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "graphql-gw",
+            || ServiceWorker::GraphQLGateway(GraphQLGateway),
+            RestartPolicy::Permanent,
+        );
 
     // Build User Service Supervisor
     let user_service_spec = SupervisorSpec::new("user-service")
         .with_restart_strategy(RestartStrategy::OneForOne)
         .with_restart_intensity(RestartIntensity::new(3, 5))
-        .with_worker("auth-1", || ServiceWorker::AuthService(AuthService { id: 1 }), RestartPolicy::Permanent)
-        .with_worker("auth-2", || ServiceWorker::AuthService(AuthService { id: 2 }), RestartPolicy::Permanent)
-        .with_worker("profile-1", || ServiceWorker::ProfileService(ProfileService { id: 1 }), RestartPolicy::Permanent)
-        .with_worker("profile-2", || ServiceWorker::ProfileService(ProfileService { id: 2 }), RestartPolicy::Permanent)
-        .with_worker("notification-1", || ServiceWorker::NotificationService(NotificationService { id: 1 }), RestartPolicy::Permanent);
+        .with_worker(
+            "auth-1",
+            || ServiceWorker::AuthService(AuthService { id: 1 }),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "auth-2",
+            || ServiceWorker::AuthService(AuthService { id: 2 }),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "profile-1",
+            || ServiceWorker::ProfileService(ProfileService { id: 1 }),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "profile-2",
+            || ServiceWorker::ProfileService(ProfileService { id: 2 }),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "notification-1",
+            || ServiceWorker::NotificationService(NotificationService { id: 1 }),
+            RestartPolicy::Permanent,
+        );
 
     // Build Content Service Supervisor
     let content_service_spec = SupervisorSpec::new("content-service")
         .with_restart_strategy(RestartStrategy::OneForOne)
         .with_restart_intensity(RestartIntensity::new(4, 8))
-        .with_worker("indexer-1", || ServiceWorker::ContentIndexer(ContentIndexer { id: 1 }), RestartPolicy::Permanent)
-        .with_worker("indexer-2", || ServiceWorker::ContentIndexer(ContentIndexer { id: 2 }), RestartPolicy::Permanent)
-        .with_worker("media-1", || ServiceWorker::MediaProcessor(MediaProcessor { id: 1 }), RestartPolicy::Permanent)
-        .with_worker("media-2", || ServiceWorker::MediaProcessor(MediaProcessor { id: 2 }), RestartPolicy::Permanent)
-        .with_worker("cdn-sync-1", || ServiceWorker::CdnSync(CdnSync { id: 1 }), RestartPolicy::Permanent)
-        .with_worker("cdn-sync-2", || ServiceWorker::CdnSync(CdnSync { id: 2 }), RestartPolicy::Permanent);
+        .with_worker(
+            "indexer-1",
+            || ServiceWorker::ContentIndexer(ContentIndexer { id: 1 }),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "indexer-2",
+            || ServiceWorker::ContentIndexer(ContentIndexer { id: 2 }),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "media-1",
+            || ServiceWorker::MediaProcessor(MediaProcessor { id: 1 }),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "media-2",
+            || ServiceWorker::MediaProcessor(MediaProcessor { id: 2 }),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "cdn-sync-1",
+            || ServiceWorker::CdnSync(CdnSync { id: 1 }),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "cdn-sync-2",
+            || ServiceWorker::CdnSync(CdnSync { id: 2 }),
+            RestartPolicy::Permanent,
+        );
 
     // Build Payment Service Supervisor
     let payment_service_spec = SupervisorSpec::new("payment-service")
         .with_restart_strategy(RestartStrategy::OneForAll) // Critical: restart all if any fails
         .with_restart_intensity(RestartIntensity::new(2, 5))
-        .with_worker("payment-stripe", || ServiceWorker::PaymentProcessor(PaymentProcessor { id: 1, provider: "stripe" }), RestartPolicy::Permanent)
-        .with_worker("payment-paypal", || ServiceWorker::PaymentProcessor(PaymentProcessor { id: 2, provider: "paypal" }), RestartPolicy::Permanent)
-        .with_worker("fraud-1", || ServiceWorker::FraudDetector(FraudDetector { id: 1 }), RestartPolicy::Permanent)
-        .with_worker("fraud-2", || ServiceWorker::FraudDetector(FraudDetector { id: 2 }), RestartPolicy::Permanent);
+        .with_worker(
+            "payment-stripe",
+            || {
+                ServiceWorker::PaymentProcessor(PaymentProcessor {
+                    id: 1,
+                    provider: "stripe",
+                })
+            },
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "payment-paypal",
+            || {
+                ServiceWorker::PaymentProcessor(PaymentProcessor {
+                    id: 2,
+                    provider: "paypal",
+                })
+            },
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "fraud-1",
+            || ServiceWorker::FraudDetector(FraudDetector { id: 1 }),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "fraud-2",
+            || ServiceWorker::FraudDetector(FraudDetector { id: 2 }),
+            RestartPolicy::Permanent,
+        );
 
     // Build Analytics Service Supervisor
     let analytics_service_spec = SupervisorSpec::new("analytics-service")
         .with_restart_strategy(RestartStrategy::OneForOne)
         .with_restart_intensity(RestartIntensity::new(5, 10))
-        .with_worker("event-collector-1", || ServiceWorker::EventCollector(EventCollector { id: 1 }), RestartPolicy::Transient)
-        .with_worker("event-collector-2", || ServiceWorker::EventCollector(EventCollector { id: 2 }), RestartPolicy::Transient)
-        .with_worker("event-collector-3", || ServiceWorker::EventCollector(EventCollector { id: 3 }), RestartPolicy::Transient)
-        .with_worker("metrics-agg-1", || ServiceWorker::MetricsAggregator(MetricsAggregator { id: 1 }), RestartPolicy::Permanent)
-        .with_worker("metrics-agg-2", || ServiceWorker::MetricsAggregator(MetricsAggregator { id: 2 }), RestartPolicy::Permanent);
+        .with_worker(
+            "event-collector-1",
+            || ServiceWorker::EventCollector(EventCollector { id: 1 }),
+            RestartPolicy::Transient,
+        )
+        .with_worker(
+            "event-collector-2",
+            || ServiceWorker::EventCollector(EventCollector { id: 2 }),
+            RestartPolicy::Transient,
+        )
+        .with_worker(
+            "event-collector-3",
+            || ServiceWorker::EventCollector(EventCollector { id: 3 }),
+            RestartPolicy::Transient,
+        )
+        .with_worker(
+            "metrics-agg-1",
+            || ServiceWorker::MetricsAggregator(MetricsAggregator { id: 1 }),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "metrics-agg-2",
+            || ServiceWorker::MetricsAggregator(MetricsAggregator { id: 2 }),
+            RestartPolicy::Permanent,
+        );
 
     // Build Database Layer Supervisor (Postgres)
     let postgres_spec = SupervisorSpec::new("postgres-layer")
         .with_restart_strategy(RestartStrategy::RestForOne)
         .with_restart_intensity(RestartIntensity::new(3, 10))
-        .with_worker("postgres-master", || ServiceWorker::PostgresConnector(PostgresConnector { id: 1, pool_size: 20 }), RestartPolicy::Permanent)
-        .with_worker("postgres-replica-1", || ServiceWorker::PostgresConnector(PostgresConnector { id: 2, pool_size: 10 }), RestartPolicy::Permanent)
-        .with_worker("postgres-replica-2", || ServiceWorker::PostgresConnector(PostgresConnector { id: 3, pool_size: 10 }), RestartPolicy::Permanent);
+        .with_worker(
+            "postgres-master",
+            || {
+                ServiceWorker::PostgresConnector(PostgresConnector {
+                    id: 1,
+                    pool_size: 20,
+                })
+            },
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "postgres-replica-1",
+            || {
+                ServiceWorker::PostgresConnector(PostgresConnector {
+                    id: 2,
+                    pool_size: 10,
+                })
+            },
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "postgres-replica-2",
+            || {
+                ServiceWorker::PostgresConnector(PostgresConnector {
+                    id: 3,
+                    pool_size: 10,
+                })
+            },
+            RestartPolicy::Permanent,
+        );
 
     // Build Database Layer Supervisor (Redis)
     let redis_spec = SupervisorSpec::new("redis-layer")
         .with_restart_strategy(RestartStrategy::OneForOne)
         .with_restart_intensity(RestartIntensity::new(5, 10))
-        .with_worker("redis-cache-1", || ServiceWorker::RedisConnector(RedisConnector { id: 1 }), RestartPolicy::Permanent)
-        .with_worker("redis-cache-2", || ServiceWorker::RedisConnector(RedisConnector { id: 2 }), RestartPolicy::Permanent)
-        .with_worker("redis-cache-3", || ServiceWorker::RedisConnector(RedisConnector { id: 3 }), RestartPolicy::Permanent);
+        .with_worker(
+            "redis-cache-1",
+            || ServiceWorker::RedisConnector(RedisConnector { id: 1 }),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "redis-cache-2",
+            || ServiceWorker::RedisConnector(RedisConnector { id: 2 }),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "redis-cache-3",
+            || ServiceWorker::RedisConnector(RedisConnector { id: 3 }),
+            RestartPolicy::Permanent,
+        );
 
     // Build Database Layer Supervisor (MongoDB)
     let mongo_spec = SupervisorSpec::new("mongo-layer")
         .with_restart_strategy(RestartStrategy::OneForOne)
         .with_restart_intensity(RestartIntensity::new(3, 10))
-        .with_worker("mongo-primary", || ServiceWorker::MongoConnector(MongoConnector { id: 1 }), RestartPolicy::Permanent)
-        .with_worker("mongo-secondary", || ServiceWorker::MongoConnector(MongoConnector { id: 2 }), RestartPolicy::Permanent);
+        .with_worker(
+            "mongo-primary",
+            || ServiceWorker::MongoConnector(MongoConnector { id: 1 }),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "mongo-secondary",
+            || ServiceWorker::MongoConnector(MongoConnector { id: 2 }),
+            RestartPolicy::Permanent,
+        );
 
     // Build Background Jobs Supervisor (Email Queue)
     let email_jobs_spec = SupervisorSpec::new("email-jobs")
         .with_restart_strategy(RestartStrategy::OneForOne)
         .with_restart_intensity(RestartIntensity::new(10, 20))
-        .with_worker("email-worker-1", || ServiceWorker::EmailWorker(EmailWorker { id: 1 }), RestartPolicy::Transient)
-        .with_worker("email-worker-2", || ServiceWorker::EmailWorker(EmailWorker { id: 2 }), RestartPolicy::Transient)
-        .with_worker("email-worker-3", || ServiceWorker::EmailWorker(EmailWorker { id: 3 }), RestartPolicy::Transient)
-        .with_worker("email-worker-4", || ServiceWorker::EmailWorker(EmailWorker { id: 4 }), RestartPolicy::Transient);
+        .with_worker(
+            "email-worker-1",
+            || ServiceWorker::EmailWorker(EmailWorker { id: 1 }),
+            RestartPolicy::Transient,
+        )
+        .with_worker(
+            "email-worker-2",
+            || ServiceWorker::EmailWorker(EmailWorker { id: 2 }),
+            RestartPolicy::Transient,
+        )
+        .with_worker(
+            "email-worker-3",
+            || ServiceWorker::EmailWorker(EmailWorker { id: 3 }),
+            RestartPolicy::Transient,
+        )
+        .with_worker(
+            "email-worker-4",
+            || ServiceWorker::EmailWorker(EmailWorker { id: 4 }),
+            RestartPolicy::Transient,
+        );
 
     // Build Background Jobs Supervisor (Reports & Sync)
     let batch_jobs_spec = SupervisorSpec::new("batch-jobs")
         .with_restart_strategy(RestartStrategy::OneForOne)
         .with_restart_intensity(RestartIntensity::new(5, 15))
-        .with_worker("report-1", || ServiceWorker::ReportGenerator(ReportGenerator { id: 1 }), RestartPolicy::Transient)
-        .with_worker("report-2", || ServiceWorker::ReportGenerator(ReportGenerator { id: 2 }), RestartPolicy::Transient)
-        .with_worker("sync-1", || ServiceWorker::DataSyncWorker(DataSyncWorker { id: 1 }), RestartPolicy::Permanent)
-        .with_worker("sync-2", || ServiceWorker::DataSyncWorker(DataSyncWorker { id: 2 }), RestartPolicy::Permanent);
+        .with_worker(
+            "report-1",
+            || ServiceWorker::ReportGenerator(ReportGenerator { id: 1 }),
+            RestartPolicy::Transient,
+        )
+        .with_worker(
+            "report-2",
+            || ServiceWorker::ReportGenerator(ReportGenerator { id: 2 }),
+            RestartPolicy::Transient,
+        )
+        .with_worker(
+            "sync-1",
+            || ServiceWorker::DataSyncWorker(DataSyncWorker { id: 1 }),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "sync-2",
+            || ServiceWorker::DataSyncWorker(DataSyncWorker { id: 2 }),
+            RestartPolicy::Permanent,
+        );
 
     // Build a deeply nested supervision tree (10 levels deep)
     // Demonstrates extreme nesting for stress testing
@@ -1017,55 +1222,100 @@ async fn main() {
     //                                     ├── worker-9-1
     //                                     └── level-10
     //                                         └── worker-10-1
-    
+
     // Build from deepest level upward
     let level_10 = SupervisorSpec::new("level-10")
         .with_restart_strategy(RestartStrategy::OneForOne)
-        .with_worker("worker-10-1", || ServiceWorker::LogAggregator(LogAggregator), RestartPolicy::Permanent);
+        .with_worker(
+            "worker-10-1",
+            || ServiceWorker::LogAggregator(LogAggregator),
+            RestartPolicy::Permanent,
+        );
 
     let level_9 = SupervisorSpec::new("level-9")
         .with_restart_strategy(RestartStrategy::OneForOne)
-        .with_worker("worker-9-1", || ServiceWorker::MetricsAggregator(MetricsAggregator { id: 9 }), RestartPolicy::Permanent)
+        .with_worker(
+            "worker-9-1",
+            || ServiceWorker::MetricsAggregator(MetricsAggregator { id: 9 }),
+            RestartPolicy::Permanent,
+        )
         .with_supervisor(level_10);
 
     let level_8 = SupervisorSpec::new("level-8")
         .with_restart_strategy(RestartStrategy::OneForOne)
-        .with_worker("worker-8-1", || ServiceWorker::EventCollector(EventCollector { id: 8 }), RestartPolicy::Permanent)
+        .with_worker(
+            "worker-8-1",
+            || ServiceWorker::EventCollector(EventCollector { id: 8 }),
+            RestartPolicy::Permanent,
+        )
         .with_supervisor(level_9);
 
     let level_7 = SupervisorSpec::new("level-7")
         .with_restart_strategy(RestartStrategy::OneForOne)
-        .with_worker("worker-7-1", || ServiceWorker::DataSyncWorker(DataSyncWorker { id: 7 }), RestartPolicy::Permanent)
+        .with_worker(
+            "worker-7-1",
+            || ServiceWorker::DataSyncWorker(DataSyncWorker { id: 7 }),
+            RestartPolicy::Permanent,
+        )
         .with_supervisor(level_8);
 
     let level_6 = SupervisorSpec::new("level-6")
         .with_restart_strategy(RestartStrategy::OneForOne)
-        .with_worker("worker-6-1", || ServiceWorker::EmailWorker(EmailWorker { id: 6 }), RestartPolicy::Permanent)
+        .with_worker(
+            "worker-6-1",
+            || ServiceWorker::EmailWorker(EmailWorker { id: 6 }),
+            RestartPolicy::Permanent,
+        )
         .with_supervisor(level_7);
 
     let level_5 = SupervisorSpec::new("level-5")
         .with_restart_strategy(RestartStrategy::OneForOne)
-        .with_worker("worker-5-1", || ServiceWorker::RedisConnector(RedisConnector { id: 5 }), RestartPolicy::Permanent)
+        .with_worker(
+            "worker-5-1",
+            || ServiceWorker::RedisConnector(RedisConnector { id: 5 }),
+            RestartPolicy::Permanent,
+        )
         .with_supervisor(level_6);
 
     let level_4 = SupervisorSpec::new("level-4")
         .with_restart_strategy(RestartStrategy::OneForOne)
-        .with_worker("worker-4-1", || ServiceWorker::PostgresConnector(PostgresConnector { id: 4, pool_size: 5 }), RestartPolicy::Permanent)
+        .with_worker(
+            "worker-4-1",
+            || {
+                ServiceWorker::PostgresConnector(PostgresConnector {
+                    id: 4,
+                    pool_size: 5,
+                })
+            },
+            RestartPolicy::Permanent,
+        )
         .with_supervisor(level_5);
 
     let level_3 = SupervisorSpec::new("level-3")
         .with_restart_strategy(RestartStrategy::OneForOne)
-        .with_worker("worker-3-1", || ServiceWorker::CdnSync(CdnSync { id: 3 }), RestartPolicy::Permanent)
+        .with_worker(
+            "worker-3-1",
+            || ServiceWorker::CdnSync(CdnSync { id: 3 }),
+            RestartPolicy::Permanent,
+        )
         .with_supervisor(level_4);
 
     let level_2 = SupervisorSpec::new("level-2")
         .with_restart_strategy(RestartStrategy::OneForOne)
-        .with_worker("worker-2-1", || ServiceWorker::MediaProcessor(MediaProcessor { id: 2 }), RestartPolicy::Permanent)
+        .with_worker(
+            "worker-2-1",
+            || ServiceWorker::MediaProcessor(MediaProcessor { id: 2 }),
+            RestartPolicy::Permanent,
+        )
         .with_supervisor(level_3);
 
     let level_1 = SupervisorSpec::new("level-1")
         .with_restart_strategy(RestartStrategy::OneForOne)
-        .with_worker("worker-1-1", || ServiceWorker::AuthService(AuthService { id: 1 }), RestartPolicy::Permanent)
+        .with_worker(
+            "worker-1-1",
+            || ServiceWorker::AuthService(AuthService { id: 1 }),
+            RestartPolicy::Permanent,
+        )
         .with_supervisor(level_2);
 
     let deep_tree_root = SupervisorSpec::new("deep-tree-root")
@@ -1094,9 +1344,21 @@ async fn main() {
         // Deep Nesting Demo (10 levels)
         .with_supervisor(deep_tree_root)
         // Monitoring Layer (direct workers)
-        .with_worker("health-checker", || ServiceWorker::HealthChecker(HealthChecker), RestartPolicy::Permanent)
-        .with_worker("log-aggregator", || ServiceWorker::LogAggregator(LogAggregator), RestartPolicy::Permanent)
-        .with_worker("alert-manager", || ServiceWorker::AlertManager(AlertManager), RestartPolicy::Permanent);
+        .with_worker(
+            "health-checker",
+            || ServiceWorker::HealthChecker(HealthChecker),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "log-aggregator",
+            || ServiceWorker::LogAggregator(LogAggregator),
+            RestartPolicy::Permanent,
+        )
+        .with_worker(
+            "alert-manager",
+            || ServiceWorker::AlertManager(AlertManager),
+            RestartPolicy::Permanent,
+        );
 
     println!("\n🚀 Starting supervision tree...\n");
     let handle = SupervisorHandle::start(root_spec);

@@ -1,7 +1,7 @@
 use ash_flare::{Worker, WorkerContext};
 use async_trait::async_trait;
 use std::sync::Arc;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 #[derive(Debug)]
 pub struct QuickWorker;

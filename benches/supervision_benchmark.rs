@@ -1,9 +1,9 @@
 use ash_flare::{
-    RestartIntensity, RestartPolicy, RestartStrategy, SupervisorHandle, SupervisorSpec,
-    StatefulSupervisorHandle, StatefulSupervisorSpec, Worker, WorkerContext,
+    RestartIntensity, RestartPolicy, RestartStrategy, StatefulSupervisorHandle,
+    StatefulSupervisorSpec, SupervisorHandle, SupervisorSpec, Worker, WorkerContext,
 };
 use async_trait::async_trait;
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -40,7 +40,8 @@ impl Worker for StatefulWorker {
 
     async fn run(&mut self) -> Result<(), Self::Error> {
         // Simulate some context operations
-        self.context.set(format!("worker-{}", self.id), serde_json::json!(self.id));
+        self.context
+            .set(format!("worker-{}", self.id), serde_json::json!(self.id));
         let _ = self.context.get(&format!("worker-{}", self.id));
         sleep(Duration::from_micros(10)).await;
         Ok(())
@@ -53,7 +54,7 @@ impl Worker for StatefulWorker {
 
 fn bench_supervisor_startup(c: &mut Criterion) {
     let mut group = c.benchmark_group("supervisor_startup");
-    
+
     for worker_count in [5, 10, 20, 50].iter() {
         group.bench_with_input(
             BenchmarkId::from_parameter(worker_count),
@@ -69,7 +70,7 @@ fn bench_supervisor_startup(c: &mut Criterion) {
                                 RestartPolicy::Temporary,
                             );
                         }
-                        
+
                         let handle = SupervisorHandle::start(spec);
                         sleep(Duration::from_millis(10)).await;
                         let _ = handle.shutdown().await;
@@ -77,13 +78,13 @@ fn bench_supervisor_startup(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
 fn bench_supervisor_shutdown(c: &mut Criterion) {
     let mut group = c.benchmark_group("supervisor_shutdown");
-    
+
     for worker_count in [5, 10, 20, 50].iter() {
         group.bench_with_input(
             BenchmarkId::from_parameter(worker_count),
@@ -102,80 +103,83 @@ fn bench_supervisor_shutdown(c: &mut Criterion) {
                         }
                         let handle = SupervisorHandle::start(spec);
                         sleep(Duration::from_millis(10)).await;
-                        
+
                         // Measure shutdown time
                         let _ = handle.shutdown().await;
                     });
             },
         );
     }
-    
+
     group.finish();
 }
 
 fn bench_nested_supervisors(c: &mut Criterion) {
     let mut group = c.benchmark_group("nested_supervisors");
-    
+
     for depth in [2, 3, 5, 10].iter() {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(depth),
-            depth,
-            |b, &d| {
-                b.to_async(tokio::runtime::Runtime::new().unwrap())
-                    .iter(|| async move {
-                        // Build nested supervisor tree
-                        let depth = d;
-                        let mut spec = SupervisorSpec::new(format!("level-{}", depth))
-                            .with_worker("worker", move || SimpleWorker { id: depth }, RestartPolicy::Temporary);
-                        
-                        for i in (0..d).rev() {
-                            let name = format!("level-{}", i);
-                            let worker_id = i;
-                            let prev_spec = spec;
-                            spec = SupervisorSpec::new(name)
-                                .with_worker("worker", move || SimpleWorker { id: worker_id }, RestartPolicy::Temporary)
-                                .with_supervisor(prev_spec);
-                        }
-                        
-                        let handle = SupervisorHandle::start(spec);
-                        sleep(Duration::from_millis(10)).await;
-                        let _ = handle.shutdown().await;
-                    });
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(depth), depth, |b, &d| {
+            b.to_async(tokio::runtime::Runtime::new().unwrap())
+                .iter(|| async move {
+                    // Build nested supervisor tree
+                    let depth = d;
+                    let mut spec = SupervisorSpec::new(format!("level-{}", depth)).with_worker(
+                        "worker",
+                        move || SimpleWorker { id: depth },
+                        RestartPolicy::Temporary,
+                    );
+
+                    for i in (0..d).rev() {
+                        let name = format!("level-{}", i);
+                        let worker_id = i;
+                        let prev_spec = spec;
+                        spec = SupervisorSpec::new(name)
+                            .with_worker(
+                                "worker",
+                                move || SimpleWorker { id: worker_id },
+                                RestartPolicy::Temporary,
+                            )
+                            .with_supervisor(prev_spec);
+                    }
+
+                    let handle = SupervisorHandle::start(spec);
+                    sleep(Duration::from_millis(10)).await;
+                    let _ = handle.shutdown().await;
+                });
+        });
     }
-    
+
     group.finish();
 }
 
 fn bench_stateful_context_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("stateful_context");
-    
+
     let ctx = WorkerContext::new();
-    
+
     // Pre-populate with some data
     for i in 0..100 {
         ctx.set(format!("key-{}", i), serde_json::json!(i));
     }
-    
+
     group.bench_function("get", |b| {
         b.iter(|| {
             black_box(ctx.get("key-50"));
         });
     });
-    
+
     group.bench_function("set", |b| {
         b.iter(|| {
             ctx.set("bench-key", serde_json::json!(42));
         });
     });
-    
+
     group.bench_function("with_value", |b| {
         b.iter(|| {
             black_box(ctx.with_value("key-50", |v| v.is_some()));
         });
     });
-    
+
     group.bench_function("update", |b| {
         b.iter(|| {
             ctx.update("counter", |v| {
@@ -184,19 +188,19 @@ fn bench_stateful_context_operations(c: &mut Criterion) {
             });
         });
     });
-    
+
     group.bench_function("contains_key", |b| {
         b.iter(|| {
             black_box(ctx.contains_key("key-50"));
         });
     });
-    
+
     group.finish();
 }
 
 fn bench_stateful_supervisor_startup(c: &mut Criterion) {
     let mut group = c.benchmark_group("stateful_startup");
-    
+
     for worker_count in [5, 10, 20, 50].iter() {
         group.bench_with_input(
             BenchmarkId::from_parameter(worker_count),
@@ -208,11 +212,14 @@ fn bench_stateful_supervisor_startup(c: &mut Criterion) {
                         for i in 0..count {
                             spec = spec.with_worker(
                                 format!("worker-{}", i),
-                                move |ctx| StatefulWorker { id: i, context: ctx },
+                                move |ctx| StatefulWorker {
+                                    id: i,
+                                    context: ctx,
+                                },
                                 RestartPolicy::Temporary,
                             );
                         }
-                        
+
                         let handle = StatefulSupervisorHandle::start(spec);
                         sleep(Duration::from_millis(10)).await;
                         let _ = handle.shutdown().await;
@@ -220,19 +227,19 @@ fn bench_stateful_supervisor_startup(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
 fn bench_restart_strategies(c: &mut Criterion) {
     let mut group = c.benchmark_group("restart_strategies");
-    
+
     let strategies = [
         ("OneForOne", RestartStrategy::OneForOne),
         ("OneForAll", RestartStrategy::OneForAll),
         ("RestForOne", RestartStrategy::RestForOne),
     ];
-    
+
     for (name, strategy) in strategies.iter() {
         group.bench_function(*name, |b| {
             b.to_async(tokio::runtime::Runtime::new().unwrap())
@@ -243,55 +250,60 @@ fn bench_restart_strategies(c: &mut Criterion) {
                         .with_worker("w1", || SimpleWorker { id: 1 }, RestartPolicy::Temporary)
                         .with_worker("w2", || SimpleWorker { id: 2 }, RestartPolicy::Temporary)
                         .with_worker("w3", || SimpleWorker { id: 3 }, RestartPolicy::Temporary);
-                    
+
                     let handle = SupervisorHandle::start(spec);
                     sleep(Duration::from_millis(10)).await;
                     let _ = handle.shutdown().await;
                 });
         });
     }
-    
+
     group.finish();
 }
 
 fn bench_dynamic_child_management(c: &mut Criterion) {
     let mut group = c.benchmark_group("dynamic_children");
-    
+
     group.bench_function("add_child", |b| {
         b.to_async(tokio::runtime::Runtime::new().unwrap())
             .iter(|| async {
                 let spec = SupervisorSpec::new("bench");
                 let handle = SupervisorHandle::start(spec);
                 sleep(Duration::from_micros(10)).await;
-                
-                let _ = handle.start_child(
-                    "dynamic-worker",
-                    || SimpleWorker { id: 999 },
-                    RestartPolicy::Temporary,
-                ).await;
+
+                let _ = handle
+                    .start_child(
+                        "dynamic-worker",
+                        || SimpleWorker { id: 999 },
+                        RestartPolicy::Temporary,
+                    )
+                    .await;
                 let _ = handle.shutdown().await;
             });
     });
-    
+
     group.bench_function("terminate_child", |b| {
         b.to_async(tokio::runtime::Runtime::new().unwrap())
             .iter(|| async {
-                let spec = SupervisorSpec::new("bench")
-                    .with_worker("w1", || SimpleWorker { id: 1 }, RestartPolicy::Temporary);
+                let spec = SupervisorSpec::new("bench").with_worker(
+                    "w1",
+                    || SimpleWorker { id: 1 },
+                    RestartPolicy::Temporary,
+                );
                 let handle = SupervisorHandle::start(spec);
                 sleep(Duration::from_micros(10)).await;
-                
+
                 let _ = handle.terminate_child("w1").await;
                 let _ = handle.shutdown().await;
             });
     });
-    
+
     group.finish();
 }
 
 fn bench_which_children(c: &mut Criterion) {
     let mut group = c.benchmark_group("which_children");
-    
+
     for worker_count in [5, 10, 20, 50].iter() {
         group.bench_with_input(
             BenchmarkId::from_parameter(worker_count),
@@ -309,14 +321,14 @@ fn bench_which_children(c: &mut Criterion) {
                         }
                         let handle = SupervisorHandle::start(spec);
                         sleep(Duration::from_micros(10)).await;
-                        
+
                         let _ = black_box(handle.which_children().await);
                         let _ = handle.shutdown().await;
                     });
             },
         );
     }
-    
+
     group.finish();
 }
 

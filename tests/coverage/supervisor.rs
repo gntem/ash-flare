@@ -2,7 +2,7 @@ use super::workers::{FailingWorker, QuickWorker};
 use ash_flare::{
     RestartIntensity, RestartPolicy, RestartStrategy, SupervisorHandle, SupervisorSpec,
 };
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 #[tokio::test]
 async fn test_supervisor_duplicate_child() {
@@ -41,7 +41,11 @@ async fn test_supervisor_terminate_nonexistent() {
 async fn test_permanent_worker_restart() {
     let spec = SupervisorSpec::new("permanent-test")
         .with_restart_intensity(RestartIntensity::new(10, 5))
-        .with_worker("failing", || FailingWorker { fail_count: 0 }, RestartPolicy::Permanent);
+        .with_worker(
+            "failing",
+            || FailingWorker { fail_count: 0 },
+            RestartPolicy::Permanent,
+        );
 
     let handle = SupervisorHandle::start(spec);
     sleep(Duration::from_millis(150)).await;
@@ -57,8 +61,11 @@ async fn test_permanent_worker_restart() {
 
 #[tokio::test]
 async fn test_transient_worker_no_restart_on_normal_exit() {
-    let spec = SupervisorSpec::new("transient-test")
-        .with_worker("quick", || QuickWorker, RestartPolicy::Transient);
+    let spec = SupervisorSpec::new("transient-test").with_worker(
+        "quick",
+        || QuickWorker,
+        RestartPolicy::Transient,
+    );
 
     let handle = SupervisorHandle::start(spec);
     sleep(Duration::from_millis(30)).await;
@@ -72,8 +79,11 @@ async fn test_transient_worker_no_restart_on_normal_exit() {
 
 #[tokio::test]
 async fn test_temporary_worker_no_restart() {
-    let spec = SupervisorSpec::new("temporary-test")
-        .with_worker("failing", || FailingWorker { fail_count: 0 }, RestartPolicy::Temporary);
+    let spec = SupervisorSpec::new("temporary-test").with_worker(
+        "failing",
+        || FailingWorker { fail_count: 0 },
+        RestartPolicy::Temporary,
+    );
 
     let handle = SupervisorHandle::start(spec);
     sleep(Duration::from_millis(30)).await;
