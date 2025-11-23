@@ -8,7 +8,10 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream, UnixListener, UnixStream};
+use tokio::net::{TcpListener, TcpStream};
+
+#[cfg(unix)]
+use tokio::net::{UnixListener, UnixStream};
 
 use crate::{ChildInfo as SupervisorChildInfo, ChildType, RestartPolicy, SupervisorHandle, Worker};
 
@@ -118,10 +121,18 @@ impl RemoteSupervisorHandle {
                 send_message(&mut stream, &cmd).await?;
                 receive_message(&mut stream).await
             }
+            #[cfg(unix)]
             SupervisorAddress::Unix(path) => {
                 let mut stream = UnixStream::connect(path).await?;
                 send_message(&mut stream, &cmd).await?;
                 receive_message(&mut stream).await
+            }
+            #[cfg(not(unix))]
+            SupervisorAddress::Unix(_) => {
+                Err(DistributedError::Io(std::io::Error::new(
+                    std::io::ErrorKind::Unsupported,
+                    "Unix sockets are not supported on this platform",
+                )))
             }
         }
     }
@@ -176,7 +187,8 @@ impl<W: Worker> SupervisorServer<W> {
         }
     }
 
-    /// Start listening on a Unix socket
+    /// Start listening on a Unix socket (Unix only)
+    #[cfg(unix)]
     pub async fn listen_unix(
         self,
         path: impl AsRef<std::path::Path>,

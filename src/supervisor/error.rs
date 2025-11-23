@@ -21,19 +21,19 @@ impl fmt::Display for SupervisorError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SupervisorError::NoChildren(name) => {
-                write!(f, "supervisor {} has no children", name)
+                write!(f, "supervisor '{}' has no children", name)
             }
             SupervisorError::AllChildrenFailed(name) => {
-                write!(f, "all children failed for supervisor {}", name)
+                write!(f, "all children failed for supervisor '{}' - restart intensity limit exceeded", name)
             }
             SupervisorError::ShuttingDown(name) => {
-                write!(f, "supervisor {} is shutting down", name)
+                write!(f, "supervisor '{}' is shutting down - operation not permitted", name)
             }
             SupervisorError::ChildAlreadyExists(id) => {
-                write!(f, "child {} already exists", id)
+                write!(f, "child with id '{}' already exists - use a unique identifier", id)
             }
             SupervisorError::ChildNotFound(id) => {
-                write!(f, "child {} not found", id)
+                write!(f, "child with id '{}' not found - it may have already terminated", id)
             }
         }
     }

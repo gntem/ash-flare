@@ -17,6 +17,7 @@ pub(crate) enum Child<W: Worker> {
 }
 
 impl<W: Worker> Child<W> {
+    #[inline]
     pub fn id(&self) -> &str {
         match self {
             Child::Worker(w) => &w.spec.id,
@@ -24,6 +25,7 @@ impl<W: Worker> Child<W> {
         }
     }
 
+    #[inline]
     pub fn child_type(&self) -> ChildType {
         match self {
             Child::Worker(_) => ChildType::Worker,
@@ -31,6 +33,7 @@ impl<W: Worker> Child<W> {
         }
     }
 
+    #[inline]
     pub fn restart_policy(&self) -> Option<RestartPolicy> {
         match self {
             Child::Worker(w) => Some(w.spec.restart_policy),
