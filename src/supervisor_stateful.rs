@@ -3,6 +3,70 @@
 //! This module provides a parallel implementation of the supervisor tree with built-in
 //! shared state via `WorkerContext`. Workers receive the context as a parameter in their
 //! factory functions, allowing them to share data through a concurrent in-memory store.
+//!
+//! # Choosing Between Stateful and Regular Supervisors
+//!
+//! Use [`StatefulSupervisorSpec`] when:
+//! - Workers need to share state (counters, caches, configuration)
+//! - You need coordination between workers (flags, semaphores)
+//! - State should survive worker restarts
+//! - You want built-in concurrency-safe storage without external dependencies
+//!
+//! Use [`SupervisorSpec`](crate::SupervisorSpec) when:
+//! - Workers are stateless or manage their own state independently
+//! - No data sharing is required between workers
+//! - You want minimal overhead (no shared context)
+//! - Workers communicate through channels or external systems
+//!
+//! # Key Differences
+//!
+//! | Feature | `StatefulSupervisorSpec` | `SupervisorSpec` |
+//! |---------|--------------------------|------------------|
+//! | Worker Factory | `Fn(Arc<WorkerContext>) -> W` | `Fn() -> W` |
+//! | Shared State | ✅ Built-in `WorkerContext` | ❌ None |
+//! | Use Case | Coordinated workers | Independent workers |
+//! | Overhead | Slightly higher (context management) | Minimal |
+//!
+//! # Example: When to Use Stateful
+//!
+//! ```rust,no_run
+//! use ash_flare::{StatefulSupervisorSpec, StatefulSupervisorHandle, Worker, WorkerContext};
+//! use async_trait::async_trait;
+//! use std::sync::Arc;
+//!
+//! #[derive(Debug)]
+//! struct CounterWorker {
+//!     id: String,
+//!     context: Arc<WorkerContext>,
+//! }
+//!
+//! #[async_trait]
+//! impl Worker for CounterWorker {
+//!     type Error = std::io::Error;
+//!     
+//!     async fn run(&mut self) -> Result<(), Self::Error> {
+//!         // Workers can share and update counters
+//!         self.context.update("global_count", |v| {
+//!             let count = v.and_then(|v| v.as_u64()).unwrap_or(0);
+//!             Some(serde_json::json!(count + 1))
+//!         });
+//!         Ok(())
+//!     }
+//! }
+//!
+//! # #[tokio::main]
+//! # async fn main() {
+//! let spec = StatefulSupervisorSpec::new("counter-supervisor")
+//!     .with_worker("counter-1", |ctx| CounterWorker { 
+//!         id: "counter-1".to_string(), 
+//!         context: ctx 
+//!     }, ash_flare::RestartPolicy::Permanent);
+//!
+//! let handle = StatefulSupervisorHandle::start(spec);
+//! // Workers share state through the context
+//! # handle.shutdown().await.ok();
+//! # }
+//! ```
 
 use crate::restart::{RestartIntensity, RestartPolicy, RestartStrategy, RestartTracker};
 use crate::supervisor_common::{run_worker, WorkerTermination};

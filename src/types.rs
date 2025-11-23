@@ -132,9 +132,32 @@ impl WorkerContext {
 
     /// Updates a value in the store using a function.
     ///
-    /// If the key doesn't exist, the function is called with `None`.
-    /// If the function returns `Some(value)`, the value is inserted/updated.
-    /// If the function returns `None`, the key is removed (if it existed).
+    /// The function receives the current value (or `None` if the key doesn't exist)
+    /// and returns an `Option` to control the update:
+    /// - `Some(value)` - Insert or update the key with the new value
+    /// - `None` - **Remove the key from the store** (if it existed)
+    ///
+    /// # Warning
+    /// Returning `None` from the update function will **delete the key** from the store.
+    /// This is useful for conditional removal but can lead to unexpected data loss if not intended.
+    ///
+    /// # Examples
+    /// ```
+    /// # use ash_flare::WorkerContext;
+    /// let ctx = WorkerContext::new();
+    ///
+    /// // Increment a counter, initializing to 1 if it doesn't exist
+    /// ctx.update("counter", |v| {
+    ///     let count = v.and_then(|v| v.as_u64()).unwrap_or(0);
+    ///     Some(serde_json::json!(count + 1))
+    /// });
+    /// assert_eq!(ctx.get("counter").and_then(|v| v.as_u64()), Some(1));
+    ///
+    /// // Conditionally remove a key by returning None
+    /// ctx.set("temp", serde_json::json!("remove me"));
+    /// ctx.update("temp", |_| None); // Key is now deleted
+    /// assert!(!ctx.contains_key("temp"));
+    /// ```
     pub fn update<F>(&self, key: &str, f: F)
     where
         F: FnOnce(Option<serde_json::Value>) -> Option<serde_json::Value>,
