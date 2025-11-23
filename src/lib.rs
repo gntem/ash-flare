@@ -79,13 +79,18 @@ mod macros;
 
 mod restart;
 mod supervisor;
+mod supervisor_common;
 mod types;
 mod worker;
 
 pub mod distributed;
+pub mod supervisor_stateful;
 
 // Re-export public API
 pub use restart::{RestartIntensity, RestartPolicy, RestartStrategy};
 pub use supervisor::{SupervisorError, SupervisorHandle, SupervisorSpec};
-pub use types::{ChildExitReason, ChildId, ChildInfo, ChildType};
+pub use supervisor_stateful::{
+    StatefulSupervisorError, StatefulSupervisorHandle, StatefulSupervisorSpec,
+};
+pub use types::{ChildExitReason, ChildId, ChildInfo, ChildType, WorkerContext};
 pub use worker::{Worker, WorkerError};

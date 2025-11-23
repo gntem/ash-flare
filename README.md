@@ -13,6 +13,7 @@ Fault-tolerant supervision trees for Rust with distributed capabilities inspired
 - **🔄 Restart Strategies**: `OneForOne`, `OneForAll`, and `RestForOne` strategies
 - **⚡ Restart Policies**: `Permanent`, `Temporary`, and `Transient` restart behaviors
 - **📊 Restart Intensity**: Configurable restart limits with sliding time windows
+- **🗂️ Stateful Workers**: Optional shared in-memory KV store for workers (`StatefulSupervisorSpec`)
 - **🌐 Distributed**: Run supervisors across processes or machines via TCP/Unix sockets
 - **🔌 Generic Workers**: Trait-based worker system for any async workload
 - **🛠️ Dynamic Management**: Add/remove children at runtime
@@ -147,6 +148,79 @@ let spec = SupervisorSpec::new("supervisor")
         within_seconds: 10,   // Within time window
     });
 ```
+
+## Stateful Workers with Shared Store
+
+Use `StatefulSupervisorSpec` for workers that need to share state via an in-memory KV store:
+
+```rust
+use ash_flare::{StatefulSupervisorSpec, StatefulSupervisorHandle, WorkerContext};
+use std::sync::Arc;
+
+struct AuctionWorker {
+    id: u32,
+    ctx: Arc<WorkerContext>,
+}
+
+#[async_trait]
+impl Worker for AuctionWorker {
+    type Error = std::io::Error;
+
+    async fn run(&mut self) -> Result<(), Self::Error> {
+        // Read from shared store
+        let current_bid = self.ctx.get("highest_bid")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+
+        // Update shared store
+        self.ctx.set("highest_bid", serde_json::json!(current_bid + 100));
+
+        // Atomic update
+        self.ctx.update("bid_count", |v| {
+            let count = v.and_then(|v| v.as_u64()).unwrap_or(0);
+            Some(serde_json::json!(count + 1))
+        });
+
+        Ok(())
+    }
+}
+
+// Create stateful supervisor (WorkerContext auto-initialized)
+let spec = StatefulSupervisorSpec::new("auction-supervisor")
+    .with_worker(
+        "auction-worker",
+        |ctx: Arc<WorkerContext>| AuctionWorker { id: 1, ctx },
+        RestartPolicy::Permanent,
+    );
+
+let handle = StatefulSupervisorHandle::start(spec);
+```
+
+Or use the `stateful_supervision_tree!` macro for a more declarative approach:
+
+```rust
+use ash_flare::stateful_supervision_tree;
+
+let spec = stateful_supervision_tree! {
+    name: "auction-supervisor",
+    strategy: OneForOne,
+    intensity: (5, 10),
+    workers: [
+        ("bidder-1", |ctx| AuctionWorker::new(1, ctx), Permanent),
+        ("bidder-2", |ctx| AuctionWorker::new(2, ctx), Permanent),
+    ],
+    supervisors: []
+};
+```
+
+**WorkerContext API:**
+
+- `get(key)` - Retrieve a value
+- `set(key, value)` - Store a value
+- `delete(key)` - Remove a key
+- `update(key, fn)` - Atomic update with a function
+
+The store is process-local, concurrent-safe (backed by `DashMap`), and persists across worker restarts.
 
 ## Dynamic Supervision
 

@@ -21,6 +21,8 @@ async-trait = "0.1"
 thiserror = "2.0"
 bincode = "2.0"
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+dashmap = "6.1"
 rand = "0.9"
 slog = "2.7"
 slog-async = "2.8"
@@ -86,3 +88,11 @@ path = "examples/shared_resource.rs"
 [[example]]
 name = "dynamic_workers"
 path = "examples/dynamic_workers.rs"
+
+[[example]]
+name = "stateful_example"
+path = "examples/stateful_example.rs"
+
+[[example]]
+name = "stateful_macro_demo"
+path = "examples/stateful_macro_demo.rs"

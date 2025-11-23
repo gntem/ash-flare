@@ -4,17 +4,17 @@
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use ash_flare::impl_worker;
+/// use std::time::Duration;
 ///
 /// struct MyWorker;
 ///
 /// impl_worker! {
 ///     MyWorker, std::io::Error => {
-///         loop {
-///             // do work
-///             tokio::time::sleep(Duration::from_secs(1)).await;
-///         }
+///         // do work
+///         tokio::time::sleep(Duration::from_millis(1)).await;
+///         Ok(())
 ///     }
 /// }
 /// ```
@@ -34,8 +34,9 @@ macro_rules! impl_worker {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use ash_flare::impl_worker_stateful;
+/// use std::time::Duration;
 ///
 /// struct MyWorker {
 ///     counter: usize,
@@ -44,8 +45,7 @@ macro_rules! impl_worker {
 /// impl_worker_stateful! {
 ///     MyWorker, std::io::Error => |self| {
 ///         self.counter += 1;
-///         println!("Counter: {}", self.counter);
-///         tokio::time::sleep(Duration::from_secs(1)).await;
+///         tokio::time::sleep(Duration::from_millis(1)).await;
 ///         Ok(())
 ///     }
 /// }
@@ -62,12 +62,103 @@ macro_rules! impl_worker_stateful {
     };
 }
 
+/// Build a stateful supervision tree with shared in-memory key-value store
+///
+/// # Examples
+///
+/// ```
+/// use ash_flare::{stateful_supervision_tree, Worker, WorkerContext};
+/// use async_trait::async_trait;
+/// use std::sync::Arc;
+///
+/// struct MyWorker {
+///     ctx: Arc<WorkerContext>,
+/// }
+///
+/// #[async_trait]
+/// impl Worker for MyWorker {
+///     type Error = std::io::Error;
+///     async fn run(&mut self) -> Result<(), Self::Error> {
+///         self.ctx.set("key", serde_json::json!("value"));
+///         Ok(())
+///     }
+/// }
+///
+/// let spec = stateful_supervision_tree! {
+///     name: "app",
+///     strategy: OneForOne,
+///     intensity: (5, 10),
+///     workers: [
+///         ("worker-1", |ctx| MyWorker { ctx }, Permanent),
+///         ("worker-2", |ctx| MyWorker { ctx }, Transient),
+///     ],
+///     supervisors: []
+/// };
+/// ```
+#[macro_export]
+macro_rules! stateful_supervision_tree {
+    (
+        name: $name:expr,
+        strategy: $strategy:ident,
+        intensity: ($max:expr, $secs:expr),
+        workers: [ $(($id:expr, $factory:expr, $policy:ident)),* $(,)? ],
+        supervisors: [ $($sup:expr),* $(,)? ]
+    ) => {
+        {
+            let spec = $crate::StatefulSupervisorSpec::new($name)
+                .with_restart_strategy($crate::RestartStrategy::$strategy)
+                .with_restart_intensity($crate::RestartIntensity {
+                    max_restarts: $max,
+                    within_seconds: $secs,
+                })
+                $(
+                    .with_worker($id, $factory, $crate::RestartPolicy::$policy)
+                )*
+                $(
+                    .with_supervisor($sup)
+                )*;
+            spec
+        }
+    };
+    (
+        name: $name:expr,
+        strategy: $strategy:ident,
+        workers: [ $(($id:expr, $factory:expr, $policy:ident)),* $(,)? ],
+        supervisors: [ $($sup:expr),* $(,)? ]
+    ) => {
+        {
+            let spec = $crate::StatefulSupervisorSpec::new($name)
+                .with_restart_strategy($crate::RestartStrategy::$strategy)
+                $(
+                    .with_worker($id, $factory, $crate::RestartPolicy::$policy)
+                )*
+                $(
+                    .with_supervisor($sup)
+                )*;
+            spec
+        }
+    };
+}
+
 /// Build a supervision tree with a declarative syntax
 ///
 /// # Examples
 ///
-/// ```ignore
-/// use ash_flare::supervision_tree;
+/// ```
+/// use ash_flare::{supervision_tree, Worker};
+/// use async_trait::async_trait;
+///
+/// struct MyWorker;
+///
+/// #[async_trait]
+/// impl Worker for MyWorker {
+///     type Error = std::io::Error;
+///     async fn run(&mut self) -> Result<(), Self::Error> { Ok(()) }
+/// }
+///
+/// impl MyWorker {
+///     fn new() -> Self { Self }
+/// }
 ///
 /// let spec = supervision_tree! {
 ///     name: "app",
@@ -130,12 +221,13 @@ macro_rules! supervision_tree {
 /// # Examples
 ///
 /// ```ignore
+/// // Ignored due to requiring actual network binding
 /// use ash_flare::serve_supervisor;
 ///
 /// // TCP server
 /// serve_supervisor!(tcp, handle, "127.0.0.1:8080");
 ///
-/// // Unix socket server
+/// // Unix socket server (Unix only)
 /// serve_supervisor!(unix, handle, "/tmp/supervisor.sock");
 /// ```
 #[macro_export]
@@ -155,12 +247,13 @@ macro_rules! serve_supervisor {
 /// # Examples
 ///
 /// ```ignore
+/// // Ignored due to requiring actual network connection
 /// use ash_flare::connect_supervisor;
 ///
 /// // Connect via TCP
 /// let remote = connect_supervisor!(tcp, "127.0.0.1:8080").await?;
 ///
-/// // Connect via Unix socket
+/// // Connect via Unix socket (Unix only)
 /// let remote = connect_supervisor!(unix, "/tmp/supervisor.sock").await?;
 /// ```
 #[macro_export]
@@ -178,6 +271,7 @@ macro_rules! connect_supervisor {
 /// # Examples
 ///
 /// ```ignore
+/// // Ignored due to requiring actual network binding
 /// use ash_flare::distributed_system;
 ///
 /// distributed_system! {
