@@ -96,3 +96,7 @@ path = "examples/stateful_example.rs"
 [[example]]
 name = "stateful_macro_demo"
 path = "examples/stateful_macro_demo.rs"
+
+[[example]]
+name = "large_tree"
+path = "examples/large_tree.rs"
