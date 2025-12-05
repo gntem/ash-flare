@@ -188,3 +188,22 @@ impl Default for WorkerContext {
         Self::new()
     }
 }
+
+// ============================================================================
+// Beam-ready Foundation Types
+// ============================================================================
+
+/// Process identifier (Beam-style) - foundation for future linking/monitoring
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Pid(pub u64);
+
+/// Extended exit reason for future Beam-like semantics
+#[derive(Debug, Clone)]
+pub enum ExitReason {
+    /// Normal termination
+    Normal,
+    /// Killed/aborted
+    Killed,
+    /// Terminated with error
+    Error(String),
+}
